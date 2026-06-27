@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6c5ce7" />
+  <title>Nexo — suas conversas, mais perto</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="nexo-logo.jpeg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section class="auth-screen" id="authScreen" hidden>
+    <div class="auth-card">
+      <img src="nexo-logo.jpeg" alt="Nexo">
+      <div id="phoneStep">
+        <p class="eyebrow">Bem-vindo ao Nexo</p>
+        <h1>Entre com seu celular</h1>
+        <p>Enviaremos um código para confirmar que este número é seu.</p>
+        <label class="phone-field"><select id="countryCode" aria-label="Código do país"><option value="+55">🇧🇷 +55</option><option value="+351">🇵🇹 +351</option><option value="+44">🇬🇧 +44</option></select><input id="phoneInput" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999"></label>
+        <small class="auth-error" id="phoneError"></small>
+        <button class="primary-action" id="requestCode">Continuar</button>
+      </div>
+      <div id="codeStep" hidden>
+        <p class="eyebrow">Confirme seu número</p>
+        <h1>Digite o código</h1>
+        <p>Enviado para <strong id="phonePreview"></strong>. <button class="inline-action" id="editPhone">Editar</button></p>
+        <div class="otp-fields" id="otpFields"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"></div>
+        <small class="demo-code">Modo de teste: use o código <strong>123456</strong></small>
+        <small class="auth-error" id="codeError"></small>
+        <button class="primary-action" id="verifyCode">Verificar e entrar</button>
+      </div>
+    </div>
+  </section>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <header class="sidebar-header">
+        <div class="brand"><img class="brand-logo" src="nexo-logo.jpeg" alt="Logo Nexo"><span>Nexo</span></div>
+        <button class="icon-button" aria-label="Nova conversa" title="Nova conversa">✎</button>
+      </header>
+
+      <div class="profile-row">
+        <div class="avatar avatar-me">C</div>
+        <div><strong>Olá, Colli</strong><span>Disponível</span></div>
+        <button class="icon-button more" aria-label="Mais opções">•••</button>
+      </div>
+
+      <label class="search-box">
+        <span>⌕</span>
+        <input id="searchInput" type="search" placeholder="Buscar conversas" />
+        <kbd>⌘ K</kbd>
+      </label>
+
+      <nav class="filter-tabs" aria-label="Filtros de conversas">
+        <button class="filter active" data-filter="all">Todas <span>4</span></button>
+        <button class="filter" data-filter="unread">Não lidas <span>2</span></button>
+        <button class="filter" data-filter="groups">Grupos</button>
+      </nav>
+
+      <div class="conversation-list" id="conversationList"></div>
+
+      <nav class="bottom-nav">
+        <button class="active" data-section="chats"><span>◉</span>Conversas</button>
+        <button data-section="updates"><span>◌</span>Atualizações</button>
+        <button data-section="calls"><span>♧</span>Chamadas</button>
+        <button id="settingsButton" data-section="settings"><span>⚙</span>Ajustes</button>
+      </nav>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <button class="icon-button mobile-back" id="mobileBack" aria-label="Voltar">←</button>
+        <div class="avatar avatar-lia">L<span class="online-dot"></span></div>
+        <div class="chat-person"><strong id="chatName">Lia Martins</strong><span id="chatStatus">online agora</span></div>
+        <div class="chat-actions">
+          <button class="icon-button" aria-label="Ligação de vídeo" title="Vídeo">▣</button>
+          <button class="icon-button" aria-label="Ligação de voz" title="Ligar">♧</button>
+          <button class="icon-button" aria-label="Buscar na conversa" title="Buscar">⌕</button>
+          <button class="icon-button" aria-label="Mais opções">•••</button>
+        </div>
+      </header>
+
+      <section class="messages" id="messages" aria-live="polite"></section>
+
+      <section class="recorder" id="recorder" hidden>
+        <div class="recording-dot"></div>
+        <span id="recordTime">0:00</span>
+        <div class="waveform" aria-hidden="true"></div>
+        <button id="cancelRecord" class="text-button">Cancelar</button>
+        <button id="sendRecord" class="send-round" aria-label="Enviar áudio">➤</button>
+      </section>
+
+      <footer class="composer" id="composer">
+        <div class="attachment-menu" id="attachmentMenu" hidden>
+          <button data-type="image"><span class="attach-icon violet">▧</span><span><strong>Fotos</strong><small>JPG, PNG ou GIF</small></span></button>
+          <button data-type="video"><span class="attach-icon coral">▶</span><span><strong>Vídeo</strong><small>MP4 ou MOV</small></span></button>
+          <button data-type="file"><span class="attach-icon blue">▤</span><span><strong>Documento</strong><small>PDF, DOC e mais</small></span></button>
+          <button data-type="contact"><span class="attach-icon green">♙</span><span><strong>Contato</strong><small>Compartilhar perfil</small></span></button>
+        </div>
+        <input type="file" id="fileInput" hidden accept="image/*,video/*,.pdf,.doc,.docx" />
+        <button class="icon-button attach-button" id="attachButton" aria-label="Anexar arquivo" aria-expanded="false">＋</button>
+        <div class="message-field">
+          <textarea id="messageInput" rows="1" placeholder="Escreva uma mensagem..."></textarea>
+          <button class="emoji-button" id="emojiButton" aria-label="Emoji">☺</button>
+        </div>
+        <button class="voice-button" id="voiceButton" aria-label="Gravar áudio">●</button>
+        <button class="send-button" id="sendButton" aria-label="Enviar mensagem">➤</button>
+      </footer>
+    </main>
+
+    <aside class="details-panel" id="detailsPanel">
+      <button class="icon-button close-details" id="closeDetails" aria-label="Fechar detalhes">×</button>
+      <div class="details-avatar">L<span></span></div>
+      <h2>Lia Martins</h2>
+      <p>@liamartins · online</p>
+      <div class="quick-actions">
+        <button><span>♧</span>Ligar</button><button><span>▣</span>Vídeo</button><button><span>⌕</span>Buscar</button>
+      </div>
+      <div class="detail-card">
+        <button><span>▧</span><strong>Mídia e links</strong><em>24</em></button>
+        <div class="media-strip"><div>🌅</div><div>☕</div><div>🌊</div></div>
+      </div>
+      <div class="detail-card">
+        <button><span>♢</span><strong>Notificações</strong><i class="toggle on"></i></button>
+        <button><span>☆</span><strong>Mensagens favoritas</strong><em>3</em></button>
+      </div>
+      <button class="danger-action">⊘ &nbsp; Bloquear contato</button>
+    </aside>
+  </div>
+
+  <div class="panel-backdrop" id="panelBackdrop" hidden></div>
+  <aside class="settings-panel" id="settingsPanel" aria-label="Configurações" hidden>
+    <header class="settings-header">
+      <button class="icon-button" id="settingsBack" aria-label="Fechar configurações">←</button>
+      <h2>Configurações</h2>
+    </header>
+    <div class="settings-body">
+      <button class="settings-profile" data-setting="profile">
+        <img src="nexo-logo.jpeg" alt="Nexo">
+        <span><strong>Colli</strong><small>Olá! Estou usando o Nexo.</small></span><em>›</em>
+      </button>
+      <label class="settings-search"><span>⌕</span><input type="search" placeholder="Pesquisar configurações"></label>
+      <div class="settings-list">
+        <button data-setting="account"><span>♙</span><div><strong>Conta</strong><small>Segurança, notificações de segurança</small></div><em>›</em></button>
+        <button data-setting="privacy"><span>♢</span><div><strong>Privacidade</strong><small>Bloqueios, mensagens temporárias</small></div><em>›</em></button>
+        <button data-setting="avatar"><span>☺</span><div><strong>Avatar</strong><small>Crie, edite e use seu avatar</small></div><em>›</em></button>
+        <button data-setting="favorites"><span>☆</span><div><strong>Favoritos</strong><small>Mensagens e contatos favoritos</small></div><em>›</em></button>
+        <button data-setting="chats"><span>◉</span><div><strong>Conversas</strong><small>Tema, papel de parede, histórico</small></div><em>›</em></button>
+        <button data-setting="notifications"><span>♧</span><div><strong>Notificações</strong><small>Sons de mensagens, grupos e chamadas</small></div><em>›</em></button>
+        <button data-setting="storage"><span>▤</span><div><strong>Armazenamento e dados</strong><small>Uso de rede e download automático</small></div><em>›</em></button>
+        <button data-setting="accessibility"><span>◌</span><div><strong>Acessibilidade</strong><small>Contraste e tamanho do texto</small></div><em>›</em></button>
+        <button data-setting="help"><span>?</span><div><strong>Ajuda</strong><small>Central de ajuda e termos</small></div><em>›</em></button>
+      </div>
+    </div>
+  </aside>
+
+  <section class="setting-detail" id="settingDetail" aria-label="Detalhes da configuração" hidden>
+    <header class="settings-header"><button class="icon-button" id="detailBack" aria-label="Voltar">←</button><h2 id="detailTitle">Conversas</h2></header>
+    <div class="setting-detail-body" id="settingDetailBody"></div>
+  </section>
+
+  <section class="feature-view" id="featureView" hidden>
+    <header class="settings-header"><button class="icon-button" id="featureBack" aria-label="Voltar às conversas">←</button><h2 id="featureTitle">Atualizações</h2></header>
+    <div class="feature-content" id="featureContent"></div>
+  </section>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "Nexo Mensagens",
+  "short_name": "Nexo",
+  "description": "Conecta. Comunica. Transforma.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020411",
+  "theme_color": "#087aff",
+  "icons": [
+    {"src":"nexo-logo.jpeg","sizes":"1254x1254","type":"image/jpeg","purpose":"any maskable"}
+  ]
+}
