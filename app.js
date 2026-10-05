@@ -16,7 +16,7 @@ let userProfile = loadState('nexo-profile', {
 removeSeededDemoData();
 let activeId = conversations[0]?.id || null, filter = 'all', recordingSeconds = 0, recordInterval, mediaRecorder, audioChunks = [], activeStream;
 let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
-let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null;
+let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null;
 let currentPhone = localStorage.getItem('nexo-phone') || '';
 const list = document.querySelector('#conversationList');
 const messages = document.querySelector('#messages');
@@ -191,6 +191,10 @@ function remoteChatIdForConversation(c) {
   return c.remoteChatId || remoteChatIdForPhones(currentPhone, c.phone);
 }
 
+function currentFirebaseUser() {
+  return window.firebase?.auth?.().currentUser || null;
+}
+
 function remoteTimestampToTime(createdAt, fallbackIso) {
   try {
     const date = createdAt?.toDate ? createdAt.toDate() : (fallbackIso ? new Date(fallbackIso) : new Date());
@@ -216,6 +220,7 @@ function initRealtimeSync() {
   if(!currentPhone) return false;
   realtimeReady = true;
   syncMyProfile();
+  listenMyChats();
   listenActiveConversation();
   return true;
 }
@@ -225,6 +230,7 @@ function syncMyProfile() {
   const docId = phoneDocId(currentPhone);
   if(!docId) return;
   db.collection('users').doc(docId).set({
+    uid: currentFirebaseUser()?.uid || '',
     phone: currentPhone,
     phoneDigits: docId,
     name: userProfile.name || 'Nexo',
@@ -251,6 +257,14 @@ async function lookupNexoContactsInFirestore(phones) {
   return new Set(hits.filter(Boolean));
 }
 
+async function resolveRemoteUserByPhone(phone) {
+  if(!db || !phone) return null;
+  const docId = phoneDocId(phone);
+  if(!docId) return null;
+  const snap = await db.collection('users').doc(docId).get();
+  return snap.exists ? { phone, phoneDigits: docId, ...(snap.data() || {}) } : null;
+}
+
 async function sendRemoteText(c, message) {
   if(!c?.phone) return;
   if(!initRealtimeSync()) {
@@ -263,23 +277,46 @@ async function sendRemoteText(c, message) {
   const chatId = remoteChatIdForConversation(c);
   if(!chatId) return;
   try {
+    const me = currentFirebaseUser();
+    const peer = await resolveRemoteUserByPhone(c.phone);
+    if(!me?.uid || !peer?.uid) {
+      message.syncFailed = true;
+      saveAppState();
+      renderMessages();
+      toast('Contato ainda não encontrado no Nexo. Peça para ele entrar com o telefone.');
+      return;
+    }
     const ref = db.collection('chats').doc(chatId).collection('messages').doc();
     message.remoteId = ref.id;
     message.syncing = true;
     c.remoteChatId = chatId;
+    c.uid = peer.uid;
+    c.registeredNexo = true;
+    c.status = 'usuário Nexo';
     saveAppState();
+    const participantUids = [me.uid, peer.uid].sort();
+    const participantPhones = [currentPhone, c.phone].sort();
     await db.collection('chats').doc(chatId).set({
       id: chatId,
       participants: [phoneDigits(currentPhone), phoneDigits(c.phone)].sort(),
-      phones: [currentPhone, c.phone].sort(),
+      phones: participantPhones,
+      participantUids,
+      participantProfiles: {
+        [me.uid]: { phone: currentPhone, name: userProfile.name || 'Nexo' },
+        [peer.uid]: { phone: peer.phone || c.phone, name: peer.name || c.name || c.phone }
+      },
       lastMessage: message.text,
+      lastMessageType: 'text',
       lastSenderPhone: currentPhone,
+      lastSenderUid: me.uid,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     await ref.set({
       id: ref.id,
       type: 'text',
       text: message.text,
+      senderUid: me.uid,
+      recipientUid: peer.uid,
       senderPhone: currentPhone,
       recipientPhone: c.phone,
       senderName: userProfile.name || '',
@@ -297,6 +334,64 @@ async function sendRemoteText(c, message) {
     renderMessages();
     toast('Mensagem salva localmente. Ative o Firestore para entregar no outro celular.');
   }
+}
+
+function listenMyChats() {
+  const me = currentFirebaseUser();
+  if(myChatsUnsubscribe) {
+    myChatsUnsubscribe();
+    myChatsUnsubscribe = null;
+  }
+  if(!db || !me?.uid) return;
+  myChatsUnsubscribe = db.collection('chats')
+    .where('participantUids','array-contains', me.uid)
+    .onSnapshot(snapshot => {
+      let changed = false;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data() || {};
+        const profiles = data.participantProfiles || {};
+        const otherUid = (data.participantUids || []).find(uid => uid !== me.uid);
+        const other = profiles[otherUid] || {};
+        const phone = other.phone || (data.phones || []).find(phone => phone !== currentPhone) || '';
+        if(!phone) return;
+        const name = other.name || phone;
+        let c = conversations.find(item => item.remoteChatId === doc.id || item.phone === phone);
+        if(!c) {
+          c = {
+            id: nextConversationId(),
+            remoteChatId: doc.id,
+            uid: otherUid || '',
+            name,
+            phone,
+            initials: initials(name),
+            color: colorForText(phone),
+            preview: data.lastMessage || 'Conversa Nexo',
+            time: now(),
+            unread: 0,
+            status: 'usuário Nexo',
+            type: 'all',
+            registeredNexo: true
+          };
+          conversations.unshift(c);
+          histories[c.id] = histories[c.id] || [];
+          changed = true;
+        } else {
+          c.remoteChatId = doc.id;
+          c.uid = c.uid || otherUid || '';
+          c.registeredNexo = true;
+          c.status = 'usuário Nexo';
+          if(data.lastMessage) c.preview = data.lastMessage;
+          changed = true;
+        }
+      });
+      if(changed) {
+        saveAppState();
+        renderConversations();
+        listenActiveConversation();
+      }
+    }, () => {
+      toast('Lista de conversas em nuvem indisponível. Confira as regras do Firestore.');
+    });
 }
 
 function listenActiveConversation() {
@@ -324,7 +419,7 @@ function listenActiveConversation() {
           return;
         }
         local.push({
-          mine: data.senderPhone === currentPhone,
+          mine: data.senderUid ? data.senderUid === currentFirebaseUser()?.uid : data.senderPhone === currentPhone,
           text: data.text,
           time: remoteTimestampToTime(data.createdAt, data.clientCreatedAt),
           remoteId: doc.id,
