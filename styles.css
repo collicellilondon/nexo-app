@@ -1159,6 +1159,23 @@ body::after {
   color: #aebac1;
 }
 
+.dark .message-field {
+  background: #202c33;
+  border-color: rgba(255,255,255,.08);
+}
+
+.dark .message-field textarea,
+.dark #messageInput {
+  color: #e9edef;
+  caret-color: #25d366;
+  background: transparent;
+}
+
+.dark .message-field textarea::placeholder,
+.dark #messageInput::placeholder {
+  color: #8696a0;
+}
+
 /* Perfil, avatar e backup local */
 .profile-editor {
   display: grid;
@@ -1464,4 +1481,62 @@ body::after {
     height: calc(100dvh - 74px - var(--mobile-nav-height) - env(safe-area-inset-bottom));
     padding-bottom: 28px;
   }
+}
+
+/* Ajustes: aparência mais limpa e profissional, sem ícones nem subtítulos nas opções. */
+.settings-list {
+  border-top: 0;
+}
+
+.settings-list button {
+  min-height: 58px;
+  gap: 12px;
+  padding: 15px 6px;
+}
+
+.settings-list button > span,
+.settings-search > span,
+.setting-row > span:first-child {
+  display: none !important;
+}
+
+.settings-list button > div,
+.setting-row > div {
+  gap: 0;
+}
+
+.settings-list strong,
+.setting-row strong {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+}
+
+.settings-list small,
+.setting-row small {
+  display: none !important;
+}
+
+.settings-list em,
+.setting-row em {
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.setting-row {
+  min-height: 58px;
+  padding: 15px 10px;
+}
+
+.setting-group h3 {
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+.settings-search {
+  margin-bottom: 18px;
+}
+
+.settings-profile strong {
+  font-size: 19px;
 }
