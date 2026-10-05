@@ -8,6 +8,7 @@ O app funciona em dois modos:
 
 1. **Modo teste local/preview:** informe um número e use o código `123456`.
 2. **SMS real no GitHub Pages/celular:** já configurado com o projeto Firebase `KidSafe ColliDev Security`.
+3. **SMS com marca NexoApp:** preparado via backend `/api/request-code` e `/api/verify-code` usando Twilio Verify + Firebase Custom Token.
 
 Configuração feita:
 
@@ -20,9 +21,46 @@ No site publicado, o Nexo não aceita o código demo. Se o Firebase não carrega
 
 Para testar SMS real localmente, prefira `http://localhost:4187`. Em `127.0.0.1`, o Firebase pode retornar domínio não autorizado se esse domínio não estiver liberado no Console.
 
-Observação: no plano Spark, o Firebase informou cota inicial de 10 SMS/dia para novos projetos. Para aumentar esse limite, será necessário adicionar faturamento no projeto.
+Observação: para SMS real via Firebase Phone Authentication, o projeto precisa estar vinculado a uma conta de faturamento do Google Cloud/Plano Blaze. Se aparecer `auth/billing-not-enabled`, o app está correto, mas o Firebase está bloqueando o envio até o faturamento ser ativado. Depois disso, ainda podem existir limites e cobranças por SMS.
 
 Não coloque service account, chave privada, senha ou segredo no navegador.
+
+## SMS com nome NexoApp
+
+O Firebase Phone Auth não permite controlar livremente o remetente do SMS. Para que o usuário veja `NexoApp` como remetente, o fluxo profissional usa Twilio Verify com Alphanumeric Sender ID e depois autentica no Firebase com `signInWithCustomToken`.
+
+Arquivos preparados:
+
+- `api/request-code.js`: envia o OTP pelo Twilio Verify.
+- `api/verify-code.js`: valida o OTP e gera um Firebase Custom Token.
+- `api/contacts-lookup.js`: verifica quais telefones já possuem conta Nexo no Firebase Auth.
+- `api/_shared.js`: CORS, validação e inicialização segura do Firebase Admin.
+- `.env.example`: lista das variáveis secretas necessárias.
+
+Variáveis obrigatórias no Vercel:
+
+```bash
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_VERIFY_SERVICE_SID=
+FIREBASE_PROJECT_ID=kidsafe-collidev-securit-74307
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+NEXO_ALLOWED_ORIGINS=https://collicellilondon.github.io,http://localhost:4187,http://127.0.0.1:4187
+```
+
+Para o Reino Unido, o Sender ID alfanumérico precisa seguir as regras do provedor/operadoras. Use `NexoApp` porque tem 7 caracteres, contém letras e fica abaixo do limite comum de 11 caracteres. Quando o backend Vercel estiver publicado, preencha `window.NEXO_AUTH_API_BASE` em `firebase-config.js` com a URL do backend se o app continuar hospedado no GitHub Pages.
+
+## Contatos reais
+
+O Nexo não inclui mais conversas ou mensagens fictícias no estado inicial. A lista começa vazia e o usuário pode:
+
+- buscar contatos pela agenda nativa em navegadores compatíveis, como Chrome no Android;
+- adicionar manualmente nome e telefone no iPhone/Safari ou em navegadores sem Contact Picker API;
+- salvar contatos e conversas somente no armazenamento local do aparelho;
+- verificar, quando o backend estiver ativo, quais telefones já possuem conta Nexo pelo endpoint `/api/contacts-lookup`.
+
+Por privacidade, a versão web/PWA não varre a agenda inteira automaticamente. O sistema abre o seletor nativo e o usuário escolhe quais contatos compartilhar com o Nexo.
 
 ## Banco local
 
