@@ -89,6 +89,80 @@ function initials(name) {
   return (name || 'N').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase() || 'N';
 }
 
+function renderAvatarContent(person = {}) {
+  const label = person.initials || person.avatar || initials(person.name);
+  return `${person.photo ? '' : escapeHtml(label)}${(person.status || '').includes('online')?'<span class="online-dot"></span>':''}`;
+}
+
+function avatarStyle(person = {}) {
+  if(person.photo) return `background:center/cover url("${person.photo}")`;
+  return `background:${person.color || person.avatarColor || colorForText(person.phone || person.name || 'Nexo')}`;
+}
+
+function publicProfilePayload() {
+  return {
+    phone: currentPhone,
+    name: userProfile.name || 'Nexo',
+    about: userProfile.about || 'Disponível',
+    username: userProfile.username || '',
+    avatar: userProfile.avatar || initials(userProfile.name),
+    avatarColor: userProfile.avatarColor || '#075e54',
+    photo: userProfile.photo || ''
+  };
+}
+
+function applyRemoteProfileToConversation(c, profile = {}) {
+  if(!c || !profile) return false;
+  let changed = false;
+  const nextName = profile.name || c.name;
+  const nextAbout = profile.about || c.about || 'Disponível';
+  const nextPhoto = profile.photo || '';
+  const nextAvatar = profile.avatar || initials(nextName);
+  const nextAvatarColor = profile.avatarColor || c.avatarColor || c.color || colorForText(c.phone || nextName);
+  const updates = {
+    uid: profile.uid || c.uid || '',
+    name: nextName,
+    about: nextAbout,
+    username: profile.username || c.username || '',
+    photo: nextPhoto,
+    avatar: nextAvatar,
+    avatarColor: nextAvatarColor,
+    initials: nextAvatar,
+    color: nextAvatarColor,
+    registeredNexo: true,
+    status: nextAbout || 'usuário Nexo'
+  };
+  Object.entries(updates).forEach(([key,value]) => {
+    if(value !== undefined && c[key] !== value) {
+      c[key] = value;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+async function resizeImageForProfile(file) {
+  if(!file?.type?.startsWith('image/')) return fileToDataUrl(file);
+  const rawUrl = await fileToDataUrl(file);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size / img.width, size / img.height);
+      const width = img.width * scale;
+      const height = img.height * scale;
+      ctx.drawImage(img, (size - width) / 2, (size - height) / 2, width, height);
+      resolve(canvas.toDataURL('image/jpeg', .82));
+    };
+    img.onerror = () => resolve(rawUrl);
+    img.src = rawUrl;
+  });
+}
+
 function applyUserProfile() {
   userProfile.avatar = userProfile.avatar || initials(userProfile.name);
   document.querySelector('#profileGreeting').textContent = `Olá, ${userProfile.name || 'Nexo'}`;
@@ -119,7 +193,7 @@ function renderConversations() {
     return;
   }
   list.innerHTML = visible.map(c => `<article class="conversation ${c.id===activeId?'active':''}" data-id="${c.id}">
-    <div class="avatar" style="background:${c.color}">${escapeHtml(c.initials)}${c.status.includes('online')?'<span class="online-dot"></span>':''}</div>
+    <div class="avatar" style="${avatarStyle(c)}">${renderAvatarContent(c)}</div>
     <div class="conversation-info"><div class="conversation-top"><strong>${c.name}</strong><time>${c.time}</time></div><p>${c.preview}</p></div>
     ${c.unread?`<span class="unread-badge">${c.unread}</span>`:''}</article>`).join('');
   list.querySelectorAll('.conversation').forEach(el => el.onclick = () => selectChat(+el.dataset.id));
@@ -150,13 +224,19 @@ function selectChat(id) {
   activeId=id; const c=conversations.find(x=>x.id===id);
   if(!c) return;
   c.unread=0;
-  document.querySelector('#chatName').textContent=c.name; document.querySelector('#chatStatus').textContent=c.status;
-  const chatAvatar = document.querySelector('#chatAvatar');
-  chatAvatar.innerHTML = `${escapeHtml(c.initials)}${c.status.includes('online')?'<span class="online-dot"></span>':''}`;
-  chatAvatar.style.background = c.color;
+  updateChatHeader(c);
   updateDetailsPanel();
   renderConversations(); renderMessages(); document.querySelector('.app-shell').classList.add('chat-open');
   listenActiveConversation();
+}
+
+function updateChatHeader(c) {
+  if(!c) return;
+  document.querySelector('#chatName').textContent = c.name;
+  document.querySelector('#chatStatus').textContent = c.about || c.status || 'Disponível';
+  const chatAvatar = document.querySelector('#chatAvatar');
+  chatAvatar.innerHTML = renderAvatarContent(c);
+  chatAvatar.style.cssText = avatarStyle(c);
 }
 
 async function sendText() {
@@ -276,17 +356,36 @@ function syncMyProfile() {
   if(!db || !currentPhone) return;
   const docId = phoneDocId(currentPhone);
   if(!docId) return;
+  const profile = publicProfilePayload();
   db.collection('users').doc(docId).set({
     uid: currentFirebaseUser()?.uid || '',
-    phone: currentPhone,
     phoneDigits: docId,
-    name: userProfile.name || 'Nexo',
-    about: userProfile.about || 'Disponível',
-    username: userProfile.username || '',
-    avatar: userProfile.avatar || initials(userProfile.name),
-    avatarColor: userProfile.avatarColor || '#075e54',
+    ...profile,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true }).catch(()=>{});
+  syncProfileIntoMyChats(profile);
+}
+
+async function syncProfileIntoMyChats(profile = publicProfilePayload()) {
+  const me = currentFirebaseUser();
+  if(!db || !me?.uid) return;
+  try {
+    const snapshot = await db.collection('chats').where('participantUids','array-contains', me.uid).get();
+    if(snapshot.empty) return;
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        [`participantProfiles.${me.uid}`]: {
+          uid: me.uid,
+          ...profile
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    await batch.commit();
+  } catch {
+    // Perfil público continua salvo em users; chats existentes atualizam na próxima mensagem.
+  }
 }
 
 async function lookupNexoContactsInFirestore(phones) {
@@ -379,10 +478,7 @@ async function sendRemoteText(c, message) {
     const ref = db.collection('chats').doc(chatId).collection('messages').doc();
     message.remoteId = ref.id;
     message.syncing = true;
-    c.remoteChatId = chatId;
-    c.uid = peer.uid;
-    c.registeredNexo = true;
-    c.status = 'usuário Nexo';
+    applyRemoteProfileToConversation(c, peer);
     saveAppState();
     const participantUids = [me.uid, peer.uid].sort();
     const participantPhones = [currentPhone, c.phone].sort();
@@ -392,8 +488,17 @@ async function sendRemoteText(c, message) {
       phones: participantPhones,
       participantUids,
       participantProfiles: {
-        [me.uid]: { phone: currentPhone, name: userProfile.name || 'Nexo' },
-        [peer.uid]: { phone: peer.phone || c.phone, name: peer.name || c.name || c.phone }
+        [me.uid]: { uid: me.uid, ...publicProfilePayload() },
+        [peer.uid]: {
+          uid: peer.uid,
+          phone: peer.phone || c.phone,
+          name: peer.name || c.name || c.phone,
+          about: peer.about || c.about || 'Disponível',
+          username: peer.username || '',
+          avatar: peer.avatar || initials(peer.name || c.name || c.phone),
+          avatarColor: peer.avatarColor || c.avatarColor || c.color || colorForText(c.phone),
+          photo: peer.photo || ''
+        }
       },
       lastMessage: message.text,
       lastMessageType: 'text',
@@ -453,12 +558,17 @@ function listenMyChats() {
             uid: otherUid || '',
             name,
             phone,
-            initials: initials(name),
-            color: colorForText(phone),
+            about: other.about || 'Disponível',
+            username: other.username || '',
+            photo: other.photo || '',
+            avatar: other.avatar || initials(name),
+            avatarColor: other.avatarColor || colorForText(phone),
+            initials: other.avatar || initials(name),
+            color: other.avatarColor || colorForText(phone),
             preview: data.lastMessage || 'Conversa Nexo',
             time: now(),
             unread: 0,
-            status: 'usuário Nexo',
+            status: other.about || 'Disponível',
             type: 'all',
             registeredNexo: true
           };
@@ -467,16 +577,15 @@ function listenMyChats() {
           changed = true;
         } else {
           c.remoteChatId = doc.id;
-          c.uid = c.uid || otherUid || '';
-          c.registeredNexo = true;
-          c.status = 'usuário Nexo';
+          changed = applyRemoteProfileToConversation(c, { uid: otherUid, phone, ...other }) || changed;
           if(data.lastMessage) c.preview = data.lastMessage;
-          changed = true;
         }
       });
       if(changed) {
         saveAppState();
         renderConversations();
+        updateChatHeader(conversations.find(x=>x.id===activeId));
+        updateDetailsPanel();
         listenActiveConversation();
       }
     }, () => {
@@ -644,10 +753,10 @@ function updateDetailsPanel() {
     document.querySelector('.details-panel > p').textContent = 'Nenhuma conversa selecionada';
     return;
   }
-  document.querySelector('.details-avatar').innerHTML = `${escapeHtml(c.initials)}${c.status.includes('online')?'<span></span>':''}`;
-  document.querySelector('.details-avatar').style.background = c.color;
+  document.querySelector('.details-avatar').innerHTML = renderAvatarContent({ ...c, status: '' });
+  document.querySelector('.details-avatar').style.cssText = avatarStyle(c);
   document.querySelector('.details-panel h2').textContent = c.name;
-  document.querySelector('.details-panel > p').textContent = `${c.name.toLowerCase().replace(/\s+/g,'')} · ${c.status}`;
+  document.querySelector('.details-panel > p').textContent = `${c.username || c.phone || c.name.toLowerCase().replace(/\s+/g,'')} · ${c.about || c.status || 'Disponível'}`;
 }
 
 function openProfilePanel() {
@@ -1038,6 +1147,7 @@ function showSetting(type) {
     userProfile.photo = '';
     saveAppState();
     applyUserProfile();
+    syncMyProfile();
     showSetting('avatar');
     toast('Avatar ativado');
   });
@@ -1047,6 +1157,7 @@ function showSetting(type) {
     userProfile.avatarColor = btn.dataset.color;
     saveAppState();
     applyUserProfile();
+    syncMyProfile();
     toast('Avatar atualizado');
   });
 }
@@ -1067,9 +1178,10 @@ document.querySelectorAll('.bottom-nav [data-section]').forEach(b=>{if(['updates
 document.querySelector('#profilePhotoInput').onchange=async e=>{
   const file = e.target.files[0];
   if(!file) return;
-  userProfile.photo = await fileToDataUrl(file);
+  userProfile.photo = await resizeImageForProfile(file);
   saveAppState();
   applyUserProfile();
+  syncMyProfile();
   showSetting('profile');
   toast('Foto do perfil salva neste aparelho');
   e.target.value = '';
