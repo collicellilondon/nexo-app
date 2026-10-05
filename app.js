@@ -204,6 +204,14 @@ function remoteTimestampToTime(createdAt, fallbackIso) {
   }
 }
 
+function registrationLabel(registered) {
+  return registered ? 'usuário Nexo' : 'aguardando verificação no Nexo';
+}
+
+function registrationPreview(registered) {
+  return registered ? 'Contato encontrado no Nexo' : 'Contato salvo. Será verificado automaticamente.';
+}
+
 function initFirestore() {
   if(!initFirebaseAuth() || !window.firebase?.firestore) return false;
   db = firebase.firestore();
@@ -222,6 +230,7 @@ function initRealtimeSync() {
   syncMyProfile();
   listenMyChats();
   listenActiveConversation();
+  setTimeout(refreshKnownContactsRegistration, 1500);
   return true;
 }
 
@@ -243,7 +252,7 @@ function syncMyProfile() {
 }
 
 async function lookupNexoContactsInFirestore(phones) {
-  if(!initRealtimeSync()) return new Set();
+  if(!initFirestore() || !currentFirebaseUser()?.uid) return new Set();
   const hits = await Promise.all([...new Set(phones)].map(async phone => {
     const docId = phoneDocId(phone);
     if(!docId) return null;
@@ -255,6 +264,49 @@ async function lookupNexoContactsInFirestore(phones) {
     }
   }));
   return new Set(hits.filter(Boolean));
+}
+
+async function refreshKnownContactsRegistration() {
+  const phones = [...new Set([
+    ...deviceContacts.map(c => c.phone),
+    ...conversations.map(c => c.phone)
+  ].filter(Boolean))];
+  if(!phones.length) return;
+  try {
+    const registeredPhones = await lookupNexoContacts(phones);
+    let changed = false;
+    deviceContacts.forEach(contact => {
+      const registered = registeredPhones.has(contact.phone);
+      if(contact.registeredNexo !== registered) {
+        contact.registeredNexo = registered;
+        contact.checkedAt = new Date().toISOString();
+        changed = true;
+      }
+    });
+    conversations.forEach(c => {
+      if(!c.phone) return;
+      const registered = registeredPhones.has(c.phone);
+      if(registered && !c.registeredNexo) {
+        c.registeredNexo = true;
+        c.status = registrationLabel(true);
+        if(!c.preview || c.preview.includes('verificação') || c.preview.includes('não verificado') || c.preview.includes('Aguardando')) {
+          c.preview = registrationPreview(true);
+        }
+        changed = true;
+      } else if(!registered && c.status === 'não verificado no Nexo') {
+        c.status = registrationLabel(false);
+        c.preview = registrationPreview(false);
+        changed = true;
+      }
+    });
+    if(changed) {
+      saveAppState();
+      renderConversations();
+      updateDetailsPanel();
+    }
+  } catch {
+    // Mantém os dados locais; a próxima abertura do app tenta novamente.
+  }
 }
 
 async function resolveRemoteUserByPhone(phone) {
@@ -674,10 +726,10 @@ function createConversationFromContact(contact) {
       phone,
       initials: initials(name),
       color: colorForText(phone),
-      preview: registered ? 'Contato encontrado no Nexo' : 'Contato adicionado. Aguardando confirmação no Nexo.',
+      preview: registrationPreview(registered),
       time: now(),
       unread: 0,
-      status: registered ? 'usuário Nexo' : 'não verificado no Nexo',
+      status: registrationLabel(registered),
       type: 'all',
       registeredNexo: registered
     };
@@ -687,7 +739,7 @@ function createConversationFromContact(contact) {
     c.name = name;
     c.initials = initials(name);
     c.registeredNexo = c.registeredNexo || registered;
-    c.status = c.registeredNexo ? 'usuário Nexo' : c.status;
+    c.status = c.registeredNexo ? registrationLabel(true) : registrationLabel(false);
   }
   activeId = c.id;
   saveAppState();
@@ -697,6 +749,7 @@ function createConversationFromContact(contact) {
   document.querySelector('#settingDetail').hidden = true;
   document.querySelector('#panelBackdrop').hidden = true;
   toast(registered ? 'Contato Nexo encontrado' : 'Contato salvo localmente');
+  if(!registered) setTimeout(refreshKnownContactsRegistration, 1200);
 }
 
 function colorForText(value) {
@@ -719,7 +772,7 @@ function contactDiscoveryMarkup() {
     </div>
     <div class="setting-group">
       <h3>Contatos salvos neste aparelho</h3>
-      ${saved.length ? saved.map(c=>`<button class="contact-result" data-phone="${escapeHtml(c.phone)}"><span>${escapeHtml(initials(c.name))}</span><div><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.phone)} · ${c.registeredNexo ? 'tem Nexo' : 'não verificado'}</small></div><em>›</em></button>`).join('') : '<p class="setting-note">Nenhum contato importado ainda.</p>'}
+      ${saved.length ? saved.map(c=>`<button class="contact-result" data-phone="${escapeHtml(c.phone)}"><span>${escapeHtml(initials(c.name))}</span><div><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.phone)} · ${c.registeredNexo ? 'tem Nexo' : 'verificando'}</small></div><em>›</em></button>`).join('') : '<p class="setting-note">Nenhum contato importado ainda.</p>'}
     </div>`;
 }
 
