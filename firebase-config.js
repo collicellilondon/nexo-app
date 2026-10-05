@@ -13,6 +13,11 @@ window.NEXO_FIREBASE_CONFIG = {
   storageBucket: "kidsafe-collidev-securit-74307.firebasestorage.app"
 };
 
+// Web Push / Firebase Cloud Messaging.
+// Preencha com a "Web Push certificate key pair" do Firebase Console > Cloud Messaging.
+// Sem esta chave, o app mostra o botão de ativar notificações, mas o token FCM não é gerado.
+window.NEXO_FIREBASE_VAPID_KEY = "";
+
 // Opcional: URL do backend Nexo OTP quando ele estiver publicado.
 // Em Vercel, deixe vazio para usar o mesmo domínio: /api/request-code e /api/verify-code.
 // Em GitHub Pages, preencha com a URL do backend Vercel, por exemplo:
