@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#6c5ce7" />
+  <meta name="theme-color" content="#087aff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Nexo" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Nexo — suas conversas, mais perto</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="nexo-logo.jpeg" />
+  <link rel="apple-touch-icon" href="nexo-icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
@@ -15,21 +19,29 @@
 <body>
   <section class="auth-screen" id="authScreen" hidden>
     <div class="auth-card">
+      <div class="auth-glow auth-glow-one"></div>
+      <div class="auth-glow auth-glow-two"></div>
       <img src="nexo-logo.jpeg" alt="Nexo">
       <div id="phoneStep">
         <p class="eyebrow">Bem-vindo ao Nexo</p>
-        <h1>Entre com seu celular</h1>
-        <p>Enviaremos um código para confirmar que este número é seu.</p>
-        <label class="phone-field"><select id="countryCode" aria-label="Código do país"><option value="+55">🇧🇷 +55</option><option value="+351">🇵🇹 +351</option><option value="+44">🇬🇧 +44</option></select><input id="phoneInput" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="(11) 99999-9999"></label>
+        <h1>Entre com seu número de telefone</h1>
+        <p>Acesse suas conversas, chamadas, fotos, vídeos e áudios em um mensageiro simples e moderno.</p>
+        <label class="phone-field"><select id="countryCode" aria-label="Código do país"><option value="+44" selected>🇬🇧 +44</option><option value="+55">🇧🇷 +55</option><option value="+351">🇵🇹 +351</option></select><input id="phoneInput" type="tel" inputmode="tel" autocomplete="tel" placeholder="07123 456789"></label>
         <small class="auth-error" id="phoneError"></small>
         <button class="primary-action" id="requestCode">Continuar</button>
+        <div class="auth-promises">
+          <span>✓ Mensagens instantâneas</span>
+          <span>✓ Chamadas de áudio e vídeo</span>
+          <span>✓ Fotos, vídeos e áudios</span>
+        </div>
       </div>
       <div id="codeStep" hidden>
         <p class="eyebrow">Confirme seu número</p>
         <h1>Digite o código</h1>
         <p>Enviado para <strong id="phonePreview"></strong>. <button class="inline-action" id="editPhone">Editar</button></p>
         <div class="otp-fields" id="otpFields"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"><input inputmode="numeric" maxlength="1"></div>
-        <small class="demo-code">Modo de teste: use o código <strong>123456</strong></small>
+        <div id="recaptchaContainer"></div>
+        <small class="demo-code" id="authModeHint">Digite seu número e aguarde o SMS de confirmação.</small>
         <small class="auth-error" id="codeError"></small>
         <button class="primary-action" id="verifyCode">Verificar e entrar</button>
       </div>
@@ -43,8 +55,8 @@
       </header>
 
       <div class="profile-row">
-        <div class="avatar avatar-me">C</div>
-        <div><strong>Olá, Colli</strong><span>Disponível</span></div>
+        <div class="avatar avatar-me" id="profileAvatarMini">C</div>
+        <div><strong id="profileGreeting">Olá, Colli</strong><span id="profileStatusMini">Disponível</span></div>
         <button class="icon-button more" aria-label="Mais opções">•••</button>
       </div>
 
@@ -73,13 +85,21 @@
     <main class="chat-panel">
       <header class="chat-header">
         <button class="icon-button mobile-back" id="mobileBack" aria-label="Voltar">←</button>
-        <div class="avatar avatar-lia">L<span class="online-dot"></span></div>
-        <div class="chat-person"><strong id="chatName">Lia Martins</strong><span id="chatStatus">online agora</span></div>
+        <div class="avatar avatar-lia" id="chatAvatar">M<span class="online-dot"></span></div>
+        <div class="chat-person"><strong id="chatName">Mamãe</strong><span id="chatStatus">online agora</span></div>
         <div class="chat-actions">
-          <button class="icon-button" aria-label="Ligação de vídeo" title="Vídeo">▣</button>
-          <button class="icon-button" aria-label="Ligação de voz" title="Ligar">♧</button>
-          <button class="icon-button" aria-label="Buscar na conversa" title="Buscar">⌕</button>
-          <button class="icon-button" aria-label="Mais opções">•••</button>
+          <button class="icon-button call-action video-call" id="videoCallButton" aria-label="Ligação de vídeo" title="Vídeo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 6.5h9.5a2.25 2.25 0 0 1 2.25 2.25v6.5a2.25 2.25 0 0 1-2.25 2.25h-9.5a2.25 2.25 0 0 1-2.25-2.25v-6.5A2.25 2.25 0 0 1 4.75 6.5Zm12 4.05 4-2.4c.34-.2.75.04.75.44v6.82c0 .4-.41.64-.75.44l-4-2.4v-2.9Z"/></svg></button>
+          <button class="icon-button call-action audio-call" id="audioCallButton" aria-label="Ligação de voz" title="Ligar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 4.4 9.45 3.3c.76-.38 1.68-.08 2.08.67l1.05 1.96c.34.64.2 1.43-.33 1.92l-1.05.98a.9.9 0 0 0-.2 1.05 9.2 9.2 0 0 0 4.12 4.12.9.9 0 0 0 1.05-.2l.98-1.05c.5-.53 1.28-.67 1.92-.33l1.96 1.05c.75.4 1.05 1.32.67 2.08l-1.1 2.25c-.35.72-1.1 1.15-1.9 1.08C10.9 18.17 5.83 13.1 5.12 5.3c-.07-.8.36-1.55 1.08-1.9Z"/></svg></button>
+          <button class="icon-button search-chat-button" id="chatSearchButton" aria-label="Buscar na conversa" title="Buscar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.8 4.5a6.3 6.3 0 1 1 0 12.6 6.3 6.3 0 0 1 0-12.6Zm0 2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 0 0 0-8.6Zm4.85 9.15 3.6 3.6"/></svg></button>
+          <button class="icon-button chat-menu-button" id="chatMenuButton" aria-label="Mais opções" aria-expanded="false" title="Mais opções"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+          <div class="chat-menu" id="chatMenu" hidden>
+            <button data-menu-action="profile">Ver perfil</button>
+            <button data-menu-action="media">Mídia, links e docs</button>
+            <button data-menu-action="search">Pesquisar na conversa</button>
+            <button data-menu-action="mute">Silenciar notificações</button>
+            <button data-menu-action="clear">Limpar conversa</button>
+            <button class="danger" data-menu-action="block">Bloquear contato</button>
+          </div>
         </div>
       </header>
 
@@ -90,7 +110,7 @@
         <span id="recordTime">0:00</span>
         <div class="waveform" aria-hidden="true"></div>
         <button id="cancelRecord" class="text-button">Cancelar</button>
-        <button id="sendRecord" class="send-round" aria-label="Enviar áudio">➤</button>
+        <button id="sendRecord" class="send-round" aria-label="Enviar áudio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 5.35c-.45-1.18.72-2.3 1.88-1.8l14.7 6.3c1.08.46 1.08 1.99 0 2.45l-14.7 6.3c-1.16.5-2.33-.62-1.88-1.8l1.72-4.53 7.2-1.7-7.2-1.7-1.72-4.52Z"/></svg></button>
       </section>
 
       <footer class="composer" id="composer">
@@ -106,16 +126,18 @@
           <textarea id="messageInput" rows="1" placeholder="Escreva uma mensagem..."></textarea>
           <button class="emoji-button" id="emojiButton" aria-label="Emoji">☺</button>
         </div>
-        <button class="voice-button" id="voiceButton" aria-label="Gravar áudio">●</button>
-        <button class="send-button" id="sendButton" aria-label="Enviar mensagem">➤</button>
+        <div class="composer-action-slot" id="composerActionSlot">
+          <button class="voice-button" id="voiceButton" aria-label="Gravar áudio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14.5a3.25 3.25 0 0 0 3.25-3.25v-5a3.25 3.25 0 0 0-6.5 0v5A3.25 3.25 0 0 0 12 14.5Zm5.5-4.2a1 1 0 0 1 1 1A6.5 6.5 0 0 1 13 17.72V20h2.25a1 1 0 1 1 0 2h-6.5a1 1 0 1 1 0-2H11v-2.28a6.5 6.5 0 0 1-5.5-6.42 1 1 0 1 1 2 0 4.5 4.5 0 1 0 9 0 1 1 0 0 1 1-1Z"/></svg></button>
+          <button class="send-button" id="sendButton" aria-label="Enviar mensagem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 20.1 21.3 12 2.8 3.9l.02 6.3L15.8 12 2.82 13.8l-.02 6.3Z"/></svg></button>
+        </div>
       </footer>
     </main>
 
     <aside class="details-panel" id="detailsPanel">
       <button class="icon-button close-details" id="closeDetails" aria-label="Fechar detalhes">×</button>
-      <div class="details-avatar">L<span></span></div>
-      <h2>Lia Martins</h2>
-      <p>@liamartins · online</p>
+      <div class="details-avatar">M<span></span></div>
+      <h2>Mamãe</h2>
+      <p>@mamae · online</p>
       <div class="quick-actions">
         <button><span>♧</span>Ligar</button><button><span>▣</span>Vídeo</button><button><span>⌕</span>Buscar</button>
       </div>
@@ -132,6 +154,8 @@
   </div>
 
   <div class="panel-backdrop" id="panelBackdrop" hidden></div>
+  <input type="file" id="profilePhotoInput" hidden accept="image/*" />
+  <input type="file" id="restoreBackupInput" hidden accept="application/json,.json" />
   <aside class="settings-panel" id="settingsPanel" aria-label="Configurações" hidden>
     <header class="settings-header">
       <button class="icon-button" id="settingsBack" aria-label="Fechar configurações">←</button>
@@ -139,8 +163,8 @@
     </header>
     <div class="settings-body">
       <button class="settings-profile" data-setting="profile">
-        <img src="nexo-logo.jpeg" alt="Nexo">
-        <span><strong>Colli</strong><small>Olá! Estou usando o Nexo.</small></span><em>›</em>
+        <img src="nexo-logo.jpeg" alt="Nexo" id="settingsProfilePhoto">
+        <span><strong id="settingsProfileName">Colli</strong><small id="settingsProfileAbout">Olá! Estou usando o Nexo.</small></span><em>›</em>
       </button>
       <label class="settings-search"><span>⌕</span><input type="search" placeholder="Pesquisar configurações"></label>
       <div class="settings-list">
@@ -167,7 +191,28 @@
     <div class="feature-content" id="featureContent"></div>
   </section>
 
+  <section class="call-screen" id="callScreen" hidden>
+    <div class="call-bg"></div>
+    <div class="call-card">
+      <div class="call-contact">
+        <div class="call-avatar" id="callAvatar">M</div>
+        <p id="callMode">Chamada de áudio</p>
+        <h2 id="callName">Mamãe</h2>
+        <span id="callTimer">tocando...</span>
+      </div>
+      <video id="localVideo" playsinline muted hidden></video>
+      <div class="call-controls">
+        <button id="muteCall" aria-label="Mutar microfone">🎙</button>
+        <button id="cameraCall" aria-label="Ativar/desativar câmera">▣</button>
+        <button id="endCall" class="end-call" aria-label="Encerrar chamada">✕</button>
+      </div>
+    </div>
+  </section>
+
   <div class="toast" id="toast" role="status"></div>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
