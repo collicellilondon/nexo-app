@@ -1,4 +1,4 @@
-const CACHE='nexo-v24-android-install';
+const CACHE='nexo-v25-profile-sync';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./firebase-config.js','./nexo-logo.jpeg','./nexo-icon-192.png','./nexo-icon-512.png','./nexo-icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
