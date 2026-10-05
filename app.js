@@ -18,6 +18,7 @@ let activeId = conversations[0]?.id || null, filter = 'all', recordingSeconds = 
 let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
 let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null;
 let currentPhone = localStorage.getItem('nexo-phone') || '';
+let deferredInstallPrompt = null;
 const list = document.querySelector('#conversationList');
 const messages = document.querySelector('#messages');
 const input = document.querySelector('#messageInput');
@@ -172,6 +173,43 @@ function resizeInput(){input.style.height='auto';input.style.height=Math.min(inp
 function now(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function toast(text){const t=document.querySelector('#toast');t.textContent=text;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1900)}
+
+function isStandaloneApp() {
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function setupInstallPrompt() {
+  const banner = document.querySelector('#installBanner');
+  const installButton = document.querySelector('#installAppButton');
+  const dismissButton = document.querySelector('#dismissInstallBanner');
+  if(!banner || !installButton || isStandaloneApp()) return;
+  const dismissed = localStorage.getItem('nexo-install-dismissed') === '1';
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if(!dismissed) banner.hidden = false;
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    banner.hidden = true;
+    toast('Nexo instalado como app');
+  });
+  installButton.addEventListener('click', async () => {
+    if(!deferredInstallPrompt) {
+      toast('No Android, abra no Chrome e use ⋮ > Instalar app.');
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice.catch(()=>null);
+    deferredInstallPrompt = null;
+    banner.hidden = true;
+    if(choice?.outcome === 'accepted') toast('Instalação iniciada');
+  });
+  dismissButton.addEventListener('click', () => {
+    localStorage.setItem('nexo-install-dismissed', '1');
+    banner.hidden = true;
+  });
+}
 
 function phoneDigits(phone) {
   return String(phone || '').replace(/\D/g,'');
@@ -834,6 +872,7 @@ document.querySelector('#chatMenuButton').onclick=e=>{e.stopPropagation();toggle
 document.querySelectorAll('#chatMenu [data-menu-action]').forEach(btn=>btn.onclick=()=>handleChatMenu(btn.dataset.menuAction));
 document.addEventListener('click',e=>{if(!e.target.closest('#chatMenu')&&!e.target.closest('#chatMenuButton'))toggleChatMenu(false)});
 
+setupInstallPrompt();
 applyUserProfile();
 updateDetailsPanel();
 renderConversations(); renderMessages(); updateSendState();
