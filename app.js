@@ -606,6 +606,7 @@ function firebasePhoneErrorMessage(err) {
   const code=err?.code || 'erro-desconhecido';
   const messages={
     'auth/invalid-phone-number':'Número inválido para SMS. No Reino Unido use 07123 456789 ou +44 7123 456789.',
+    'auth/billing-not-enabled':'O SMS real está bloqueado porque o projeto Firebase ainda não tem faturamento ativo. Ative o plano Blaze/Google Cloud Billing no projeto para liberar envio de SMS.',
     'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos antes de pedir outro SMS.',
     'auth/quota-exceeded':'A cota de SMS do Firebase acabou. No plano gratuito, novos projetos podem ter limite diário baixo.',
     'auth/captcha-check-failed':'O reCAPTCHA falhou. Recarregue a página e tente novamente.',
