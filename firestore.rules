@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Regras iniciais para teste fechado do Nexo.
+    // Permite somente usuários autenticados por telefone.
+    // Antes de abrir para público, restringir chats aos participantes.
+    match /{document=**} {
+      allow read, write: if signedIn();
+    }
+  }
+}
