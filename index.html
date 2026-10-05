@@ -68,6 +68,14 @@
         <kbd>⌘ K</kbd>
       </label>
 
+      <div class="sidebar-tools" aria-label="Ações rápidas">
+        <button id="addContactButton" class="add-contact-button" type="button"><span>＋</span>Adicionar contato</button>
+        <div class="theme-toggle" role="group" aria-label="Tema do app">
+          <button class="theme-toggle-button active" data-quick-theme="light" type="button">Claro</button>
+          <button class="theme-toggle-button" data-quick-theme="dark" type="button">Escuro</button>
+        </div>
+      </div>
+
       <nav class="filter-tabs" aria-label="Filtros de conversas">
         <button class="filter active" data-filter="all">Todas</button>
         <button class="filter" data-filter="unread">Não lidas</button>
@@ -170,6 +178,7 @@
       </button>
       <label class="settings-search"><span>⌕</span><input type="search" placeholder="Pesquisar configurações"></label>
       <div class="settings-list">
+        <button data-setting="contacts"><span>＋</span><div><strong>Contatos</strong><small>Adicionar contato ou buscar na agenda</small></div><em>›</em></button>
         <button data-setting="account"><span>♙</span><div><strong>Conta</strong><small>Segurança, notificações de segurança</small></div><em>›</em></button>
         <button data-setting="privacy"><span>♢</span><div><strong>Privacidade</strong><small>Bloqueios, mensagens temporárias</small></div><em>›</em></button>
         <button data-setting="avatar"><span>☺</span><div><strong>Avatar</strong><small>Crie, edite e use seu avatar</small></div><em>›</em></button>
