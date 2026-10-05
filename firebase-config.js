@@ -12,3 +12,9 @@ window.NEXO_FIREBASE_CONFIG = {
   messagingSenderId: "1006389451626",
   storageBucket: "kidsafe-collidev-securit-74307.firebasestorage.app"
 };
+
+// Opcional: URL do backend Nexo OTP quando ele estiver publicado.
+// Em Vercel, deixe vazio para usar o mesmo domínio: /api/request-code e /api/verify-code.
+// Em GitHub Pages, preencha com a URL do backend Vercel, por exemplo:
+// window.NEXO_AUTH_API_BASE = "https://nexo-app.vercel.app";
+window.NEXO_AUTH_API_BASE = "";
