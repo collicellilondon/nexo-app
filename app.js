@@ -1,29 +1,115 @@
-const conversations = [
-  { id: 1, name: 'Lia Martins', initials: 'L', color: '#c8738b', preview: 'Perfeito! Te encontro às 19h ✨', time: '14:32', unread: 0, status: 'online agora', type: 'all' },
-  { id: 2, name: 'Família', initials: 'F', color: '#4d92a4', preview: 'Mãe: Não esqueçam do almoço...', time: '13:48', unread: 3, status: '5 participantes', type: 'groups' },
-  { id: 3, name: 'Rafael Lima', initials: 'R', color: '#dc9d57', preview: '🎤 Áudio · 0:18', time: '11:20', unread: 1, status: 'visto há 12 min', type: 'all' },
-  { id: 4, name: 'Equipe Nexo', initials: 'N', color: '#6c5ce7', preview: 'Joana: O protótipo ficou incrível!', time: 'Ontem', unread: 0, status: '8 participantes', type: 'groups' },
-  { id: 5, name: 'Camila Reis', initials: 'C', color: '#4aa880', preview: 'Obrigada! 💜', time: 'Ontem', unread: 0, status: 'visto ontem', type: 'all' }
+const defaultConversations = [
+  { id: 1, name: 'Mamãe', initials: 'M', color: '#c8738b', preview: 'Cheguei bem na escola 💙', time: '14:32', unread: 0, status: 'online agora', type: 'all' },
+  { id: 2, name: 'Família', initials: 'F', color: '#4d92a4', preview: 'Pai: Chamada de vídeo às 19h?', time: '13:48', unread: 3, status: '4 participantes', type: 'groups' },
+  { id: 3, name: 'Papai', initials: 'P', color: '#dc9d57', preview: '🎤 Áudio · 0:18', time: '11:20', unread: 1, status: 'visto há 12 min', type: 'all' },
+  { id: 4, name: 'Nexo', initials: 'N', color: '#087aff', preview: 'Seu app está pronto para conversar', time: 'Ontem', unread: 0, status: 'assistente do app', type: 'all' },
+  { id: 5, name: 'Vovó', initials: 'V', color: '#4aa880', preview: 'Te amo! 💜', time: 'Ontem', unread: 0, status: 'visto ontem', type: 'all' }
 ];
 
-const histories = {
+const defaultHistories = {
   1: [
-    { mine:false, text:'Oi! Como foi seu dia?', time:'14:20' },
-    { mine:true, text:'Foi ótimo! Finalmente terminei aquele projeto que te contei 😄', time:'14:23' },
-    { mine:false, text:'Aaaah, que notícia boa! Temos que comemorar.', time:'14:25' },
-    { mine:true, text:'Que tal aquele café novo hoje à noite?', time:'14:28' },
-    { mine:false, text:'Perfeito! Te encontro às 19h ✨', time:'14:32' }
+    { mine:false, text:'Oi, meu amor. Chegou tudo bem?', time:'14:20' },
+    { mine:true, text:'Cheguei sim 💙 A dashboard abriu o Nexo certinho.', time:'14:23' },
+    { mine:false, text:'Perfeito. Se precisar, me chama por áudio ou vídeo.', time:'14:25' },
+    { mine:true, text:'Tá bom! Vou mandar uma foto depois da aula.', time:'14:28' },
+    { mine:false, text:'Combinado. Fico online por aqui.', time:'14:32' }
   ],
-  2: [{mine:false,text:'Almoço de domingo confirmado! 🍝',time:'13:40'},{mine:true,text:'Eu levo a sobremesa.',time:'13:43'}],
-  3: [{mine:false,text:'Tenho uma ideia para o fim de semana.',time:'11:18'},{mine:false,audio:true,duration:'0:18',time:'11:20'}],
-  4: [{mine:false,text:'O novo fluxo de mensagens está pronto para revisão.',time:'09:15'},{mine:true,text:'Ficou muito fluido. Excelente trabalho, equipe!',time:'09:22'}],
-  5: [{mine:true,text:'Enviei o documento no seu e-mail.',time:'Ontem'},{mine:false,text:'Obrigada! 💜',time:'Ontem'}]
+  2: [{mine:false,text:'Chamada de vídeo em família às 19h?',time:'13:40'},{mine:true,text:'Sim! Vou entrar pelo Nexo.',time:'13:43'}],
+  3: [{mine:false,text:'Filha, deixei um áudio pra você ouvir quando puder.',time:'11:18'},{mine:false,audio:true,duration:'0:18',time:'11:20'}],
+  4: [{mine:false,text:'Bem-vindo ao Nexo. Mensagens, áudio, fotos, vídeos e chamadas estão nesta tela.',time:'09:15'},{mine:true,text:'Ótimo. Vamos testar as funções.',time:'09:22'}],
+  5: [{mine:true,text:'Oi, vovó! Depois te mando uma foto.',time:'Ontem'},{mine:false,text:'Te amo! 💜',time:'Ontem'}]
 };
 
+let conversations = loadState('nexo-conversations', defaultConversations);
+let histories = loadState('nexo-histories', defaultHistories);
+let userProfile = loadState('nexo-profile', {
+  name: 'Colli',
+  about: 'Disponível',
+  username: '@colli',
+  photo: '',
+  avatar: 'C',
+  avatarColor: '#075e54'
+});
+conversations = conversations.map(c=>{
+  if(c.name === 'Kidsafe Guard') return {...c, name:'Nexo', initials:'N', preview:'Seu app está pronto para conversar', status:'assistente do app'};
+  return {...c, status:(c.status || '').replace('contato aprovado · ','').replace('grupo aprovado · ','').replace('sistema de proteção ativo','assistente do app')};
+});
+Object.keys(histories).forEach(id=>{
+  histories[id] = histories[id].map(m=>m.text ? {...m, text:m.text.replace('Conversa protegida aqui no Kidsafe.','Fico online por aqui.').replace('Todos os links externos estão bloqueados neste modo.','Bem-vindo ao Nexo. Mensagens, áudio, fotos, vídeos e chamadas estão nesta tela.').replace('Obrigada, Guard. Manter apenas contatos aprovados.','Ótimo. Vamos testar as funções.')} : m);
+});
 let activeId = 1, filter = 'all', recordingSeconds = 0, recordInterval, mediaRecorder, audioChunks = [], activeStream;
+let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
 const list = document.querySelector('#conversationList');
 const messages = document.querySelector('#messages');
 const input = document.querySelector('#messageInput');
+
+function loadState(key, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : structuredClone(fallback);
+  } catch {
+    return structuredClone(fallback);
+  }
+}
+
+function saveAppState() {
+  localStorage.setItem('nexo-conversations', JSON.stringify(conversations));
+  localStorage.setItem('nexo-histories', JSON.stringify(histories));
+  localStorage.setItem('nexo-profile', JSON.stringify(userProfile));
+}
+saveAppState();
+
+function createSafetySnapshot() {
+  try {
+    if(localStorage.getItem('nexo-safety-snapshot-before-phone-auth')) return;
+    const snapshot = {
+      createdAt: new Date().toISOString(),
+      profile: userProfile,
+      conversations,
+      histories,
+      phone: localStorage.getItem('nexo-phone') || ''
+    };
+    localStorage.setItem('nexo-safety-snapshot-before-phone-auth', JSON.stringify(snapshot));
+  } catch {
+    // Se o aparelho estiver sem espaço, o app segue sem apagar dados existentes.
+  }
+}
+createSafetySnapshot();
+
+function fileToDataUrl(file) {
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function initials(name) {
+  return (name || 'N').trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase() || 'N';
+}
+
+function applyUserProfile() {
+  userProfile.avatar = userProfile.avatar || initials(userProfile.name);
+  document.querySelector('#profileGreeting').textContent = `Olá, ${userProfile.name || 'Nexo'}`;
+  document.querySelector('#profileStatusMini').textContent = userProfile.about || 'Disponível';
+  document.querySelector('#settingsProfileName').textContent = userProfile.name || 'Nexo';
+  document.querySelector('#settingsProfileAbout').textContent = userProfile.about || 'Disponível';
+  const mini = document.querySelector('#profileAvatarMini');
+  mini.textContent = userProfile.photo ? '' : (userProfile.avatar || initials(userProfile.name));
+  mini.style.background = userProfile.photo ? `center/cover url("${userProfile.photo}")` : userProfile.avatarColor;
+  const photo = document.querySelector('#settingsProfilePhoto');
+  photo.src = userProfile.photo || 'nexo-logo.jpeg';
+}
 
 function renderConversations() {
   const term = document.querySelector('#searchInput').value.toLowerCase();
@@ -31,7 +117,7 @@ function renderConversations() {
     const matchesFilter = filter === 'all' || (filter === 'unread' ? c.unread > 0 : c.type === 'groups');
     return matchesFilter && c.name.toLowerCase().includes(term);
   }).map(c => `<article class="conversation ${c.id===activeId?'active':''}" data-id="${c.id}">
-    <div class="avatar" style="background:${c.color}">${c.initials}${c.status.includes('online')?'<span class="online-dot"></span>':''}</div>
+    <div class="avatar" style="background:${c.color}">${escapeHtml(c.initials)}${c.status.includes('online')?'<span class="online-dot"></span>':''}</div>
     <div class="conversation-info"><div class="conversation-top"><strong>${c.name}</strong><time>${c.time}</time></div><p>${c.preview}</p></div>
     ${c.unread?`<span class="unread-badge">${c.unread}</span>`:''}</article>`).join('');
   list.querySelectorAll('.conversation').forEach(el => el.onclick = () => selectChat(+el.dataset.id));
@@ -50,15 +136,19 @@ function renderMessages() {
 function selectChat(id) {
   activeId=id; const c=conversations.find(x=>x.id===id); c.unread=0;
   document.querySelector('#chatName').textContent=c.name; document.querySelector('#chatStatus').textContent=c.status;
+  const chatAvatar = document.querySelector('#chatAvatar');
+  chatAvatar.innerHTML = `${escapeHtml(c.initials)}${c.status.includes('online')?'<span class="online-dot"></span>':''}`;
+  chatAvatar.style.background = c.color;
+  updateDetailsPanel();
   renderConversations(); renderMessages(); document.querySelector('.app-shell').classList.add('chat-open');
 }
 
 function sendText() {
   const text=input.value.trim(); if(!text) return;
   histories[activeId].push({mine:true,text,time:now()}); input.value=''; resizeInput(); updateSendState(); renderMessages();
-  const c=conversations.find(x=>x.id===activeId); c.preview=text; c.time=now(); renderConversations();
+  const c=conversations.find(x=>x.id===activeId); c.preview=text; c.time=now(); saveAppState(); renderConversations();
 }
-function updateSendState(){const has=input.value.trim();document.querySelector('#sendButton').style.display=has?'block':'none';document.querySelector('#voiceButton').style.display=has?'none':'block'}
+function updateSendState(){const has=input.value.trim();document.querySelector('#composerActionSlot').classList.toggle('typing',!!has)}
 function resizeInput(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,110)+'px'}
 function now(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
@@ -71,8 +161,8 @@ input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventD
 document.querySelector('#sendButton').onclick=sendText;
 document.querySelector('#mobileBack').onclick=()=>document.querySelector('.app-shell').classList.remove('chat-open');
 document.querySelector('#attachButton').onclick=e=>{e.stopPropagation();const m=document.querySelector('#attachmentMenu');m.hidden=!m.hidden;e.currentTarget.setAttribute('aria-expanded',!m.hidden)};
-document.querySelectorAll('#attachmentMenu button').forEach(btn=>btn.onclick=()=>{if(btn.dataset.type==='contact'){histories[activeId].push({mine:true,text:'👤 Contato compartilhado: Marina Costa',time:now()});renderMessages();toast('Contato compartilhado');document.querySelector('#attachmentMenu').hidden=true}else{const fi=document.querySelector('#fileInput');fi.accept=btn.dataset.type==='image'?'image/*':btn.dataset.type==='video'?'video/*':'.pdf,.doc,.docx';fi.dataset.kind=btn.dataset.type;fi.click()}});
-document.querySelector('#fileInput').onchange=e=>{const file=e.target.files[0];if(!file)return;const kind=e.target.dataset.kind;if(kind==='image'||kind==='video'){const url=URL.createObjectURL(file);histories[activeId].push({mine:true,media:url,kind,time:now()})}else histories[activeId].push({mine:true,text:`📄 ${file.name}`,time:now()});document.querySelector('#attachmentMenu').hidden=true;renderMessages();toast('Anexo adicionado');e.target.value=''};
+document.querySelectorAll('#attachmentMenu button').forEach(btn=>btn.onclick=()=>{if(btn.dataset.type==='contact'){histories[activeId].push({mine:true,text:'👤 Contato compartilhado: Marina Costa',time:now()});saveAppState();renderMessages();toast('Contato compartilhado');document.querySelector('#attachmentMenu').hidden=true}else{const fi=document.querySelector('#fileInput');fi.accept=btn.dataset.type==='image'?'image/*':btn.dataset.type==='video'?'video/*':'.pdf,.doc,.docx';fi.dataset.kind=btn.dataset.type;fi.click()}}); 
+document.querySelector('#fileInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;const kind=e.target.dataset.kind;if(kind==='image'||kind==='video'){const url=await fileToDataUrl(file);histories[activeId].push({mine:true,media:url,kind,fileName:file.name,time:now()})}else histories[activeId].push({mine:true,text:`📄 ${file.name}`,fileName:file.name,time:now()});document.querySelector('#attachmentMenu').hidden=true;saveAppState();renderMessages();toast('Anexo salvo neste aparelho');e.target.value=''};
 document.body.addEventListener('click',e=>{if(!e.target.closest('.attachment-menu')&&!e.target.closest('#attachButton'))document.querySelector('#attachmentMenu').hidden=true});
 document.querySelector('#emojiButton').onclick=()=>{input.value+=' 😊';input.focus();updateSendState();resizeInput()};
 document.querySelector('#voiceButton').onclick=async()=>{
@@ -83,13 +173,170 @@ document.querySelector('#voiceButton').onclick=async()=>{
     recordInterval=setInterval(()=>{recordingSeconds++;document.querySelector('#recordTime').textContent=`${Math.floor(recordingSeconds/60)}:${String(recordingSeconds%60).padStart(2,'0')}`},1000);
   } catch(e) { toast('Permita o acesso ao microfone para gravar'); }
 };
-function finishRecording(cancel=false){clearInterval(recordInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.onstop=()=>{if(!cancel&&audioChunks.length){const url=URL.createObjectURL(new Blob(audioChunks,{type:mediaRecorder.mimeType||'audio/webm'}));const seconds=Math.max(recordingSeconds,1);histories[activeId].push({mine:true,audio:true,url,duration:`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`,time:now()});renderMessages();toast('Áudio enviado')}else if(cancel)toast('Gravação cancelada')};mediaRecorder.stop()}activeStream?.getTracks().forEach(t=>t.stop());document.querySelector('#recorder').hidden=true;document.querySelector('#composer').hidden=false}
+function finishRecording(cancel=false){clearInterval(recordInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.onstop=async()=>{if(!cancel&&audioChunks.length){const url=await blobToDataUrl(new Blob(audioChunks,{type:mediaRecorder.mimeType||'audio/webm'}));const seconds=Math.max(recordingSeconds,1);histories[activeId].push({mine:true,audio:true,url,duration:`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`,time:now()});saveAppState();renderMessages();toast('Áudio salvo neste aparelho')}else if(cancel)toast('Gravação cancelada')};mediaRecorder.stop()}activeStream?.getTracks().forEach(t=>t.stop());document.querySelector('#recorder').hidden=true;document.querySelector('#composer').hidden=false}
 document.querySelector('#cancelRecord').onclick=()=>finishRecording(true);
 document.querySelector('#sendRecord').onclick=()=>finishRecording(false);
 document.querySelectorAll('.toggle').forEach(t=>t.onclick=()=>t.classList.toggle('on'));
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.querySelector('#searchInput').focus()}});
 
-renderConversations(); renderMessages();
+async function startCall(type='audio') {
+  const c = conversations.find(x=>x.id===activeId);
+  currentCallType = type;
+  callSeconds = 0;
+  document.querySelector('#callName').textContent = c.name;
+  document.querySelector('#callAvatar').textContent = c.initials;
+  document.querySelector('#callAvatar').style.background = c.color;
+  document.querySelector('#callMode').textContent = type === 'video' ? 'Chamada de vídeo' : 'Chamada de áudio';
+  document.querySelector('#callTimer').textContent = 'conectando...';
+  document.querySelector('#callScreen').hidden = false;
+  document.querySelector('#localVideo').hidden = type !== 'video';
+  document.querySelector('#cameraCall').hidden = type !== 'video';
+
+  try {
+    callStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+    const video = document.querySelector('#localVideo');
+    if (type === 'video') {
+      video.srcObject = callStream;
+      await video.play();
+    }
+    document.querySelector('#callTimer').textContent = '00:00';
+    clearInterval(callInterval);
+    callInterval = setInterval(()=>{
+      callSeconds++;
+      document.querySelector('#callTimer').textContent = formatDuration(callSeconds);
+    },1000);
+    toast(type === 'video' ? 'Câmera e microfone conectados' : 'Microfone conectado');
+  } catch {
+    document.querySelector('#callScreen').hidden = true;
+    toast(type === 'video' ? 'Permita câmera e microfone para a chamada' : 'Permita o microfone para a chamada');
+  }
+}
+
+function endCall() {
+  clearInterval(callInterval);
+  callStream?.getTracks().forEach(t=>t.stop());
+  callStream = null;
+  document.querySelector('#localVideo').srcObject = null;
+  document.querySelector('#callScreen').hidden = true;
+  if (callSeconds > 0) {
+    const label = currentCallType === 'video' ? 'Chamada de vídeo' : 'Chamada de áudio';
+    histories[activeId].push({mine:true,text:`${currentCallType === 'video' ? '🎥' : '📞'} ${label} · ${formatDuration(callSeconds)}`,time:now()});
+    const c=conversations.find(x=>x.id===activeId);
+    c.preview = `${label} · ${formatDuration(callSeconds)}`;
+    c.time = now();
+    saveAppState();
+    renderConversations();
+    renderMessages();
+  }
+}
+
+function formatDuration(total) {
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
+
+document.querySelector('#audioCallButton').onclick=()=>startCall('audio');
+document.querySelector('#videoCallButton').onclick=()=>startCall('video');
+document.querySelector('#chatSearchButton').onclick=()=>openConversationSearch();
+document.querySelector('#endCall').onclick=endCall;
+document.querySelector('#muteCall').onclick=e=>{
+  const track = callStream?.getAudioTracks()[0];
+  if(!track) return;
+  track.enabled = !track.enabled;
+  e.currentTarget.classList.toggle('off', !track.enabled);
+  toast(track.enabled ? 'Microfone ativado' : 'Microfone mutado');
+};
+document.querySelector('#cameraCall').onclick=e=>{
+  const track = callStream?.getVideoTracks()[0];
+  if(!track) return;
+  track.enabled = !track.enabled;
+  e.currentTarget.classList.toggle('off', !track.enabled);
+  toast(track.enabled ? 'Câmera ativada' : 'Câmera desligada');
+};
+
+function updateDetailsPanel() {
+  const c = conversations.find(x=>x.id===activeId);
+  document.querySelector('.details-avatar').innerHTML = `${escapeHtml(c.initials)}${c.status.includes('online')?'<span></span>':''}`;
+  document.querySelector('.details-avatar').style.background = c.color;
+  document.querySelector('.details-panel h2').textContent = c.name;
+  document.querySelector('.details-panel > p').textContent = `${c.name.toLowerCase().replace(/\s+/g,'')} · ${c.status}`;
+}
+
+function openProfilePanel() {
+  updateDetailsPanel();
+  document.querySelector('#detailsPanel').classList.add('open');
+  document.querySelector('.app-shell').classList.add('details-open');
+}
+
+function closeProfilePanel() {
+  document.querySelector('#detailsPanel').classList.remove('open');
+  document.querySelector('.app-shell').classList.remove('details-open');
+}
+
+function toggleChatMenu(force) {
+  const menu = document.querySelector('#chatMenu');
+  const button = document.querySelector('#chatMenuButton');
+  const open = typeof force === 'boolean' ? force : menu.hidden;
+  menu.hidden = !open;
+  button.setAttribute('aria-expanded', String(open));
+}
+
+function openConversationSearch() {
+  const c = conversations.find(x=>x.id===activeId);
+  const term = prompt(`Pesquisar na conversa com ${c.name}:`);
+  if(!term) return;
+  const found = (histories[activeId] || []).find(m => (m.text || m.fileName || '').toLowerCase().includes(term.toLowerCase()));
+  toast(found ? `Encontrado: ${(found.text || found.fileName).slice(0,42)}` : 'Nada encontrado nesta conversa');
+}
+
+function handleChatMenu(action) {
+  toggleChatMenu(false);
+  const c = conversations.find(x=>x.id===activeId);
+  if(action === 'profile') openProfilePanel();
+  else if(action === 'media') {
+    const total = (histories[activeId] || []).filter(m=>m.media || m.audio || m.fileName).length;
+    toast(total ? `${total} item(ns) de mídia e arquivos nesta conversa` : 'Nenhuma mídia nesta conversa');
+    openProfilePanel();
+  }
+  else if(action === 'search') openConversationSearch();
+  else if(action === 'mute') {
+    c.muted = !c.muted;
+    saveAppState();
+    toast(c.muted ? 'Conversa silenciada' : 'Notificações reativadas');
+  }
+  else if(action === 'clear') {
+    const ok = confirm(`Limpar todas as mensagens com ${c.name} somente neste aparelho?`);
+    if(!ok) return;
+    histories[activeId] = [];
+    c.preview = 'Conversa limpa neste aparelho';
+    c.time = now();
+    saveAppState();
+    renderConversations();
+    renderMessages();
+    toast('Conversa limpa localmente');
+  }
+  else if(action === 'block') {
+    c.blocked = !c.blocked;
+    c.status = c.blocked ? 'bloqueado neste aparelho' : 'online agora';
+    saveAppState();
+    selectChat(activeId);
+    toast(c.blocked ? 'Contato bloqueado localmente' : 'Contato desbloqueado');
+  }
+}
+
+document.querySelector('#chatAvatar').onclick=openProfilePanel;
+document.querySelector('.chat-person').onclick=openProfilePanel;
+document.querySelector('#closeDetails').onclick=closeProfilePanel;
+document.querySelector('.profile-row').onclick=()=>{openSettings();showSetting('profile')};
+document.querySelectorAll('.quick-actions button').forEach((btn,i)=>btn.onclick=()=>{if(i===0)startCall('audio');else if(i===1)startCall('video');else toast('Busca no perfil ativada')});
+document.querySelectorAll('.detail-card button').forEach(btn=>btn.onclick=()=>toast(btn.textContent.trim() || 'Opção aberta'));
+document.querySelector('.danger-action').onclick=()=>toast('Bloqueio ficará disponível com contatos reais');
+document.querySelector('#chatMenuButton').onclick=e=>{e.stopPropagation();toggleChatMenu()};
+document.querySelectorAll('#chatMenu [data-menu-action]').forEach(btn=>btn.onclick=()=>handleChatMenu(btn.dataset.menuAction));
+document.addEventListener('click',e=>{if(!e.target.closest('#chatMenu')&&!e.target.closest('#chatMenuButton'))toggleChatMenu(false)});
+
+applyUserProfile();
+updateDetailsPanel();
+renderConversations(); renderMessages(); updateSendState();
 
 // Configurações, temas e áreas extras do Nexo
 const settingsPanel = document.querySelector('#settingsPanel');
@@ -119,21 +366,132 @@ function applyWallpaper(wall) {
 function row(icon,title,sub,toggle=false,on=true) {
   return `<div class="setting-row"><span>${icon}</span><div><strong>${title}</strong><small>${sub}</small></div>${toggle?`<button class="switch ${on?'on':''}" aria-label="${title}"></button>`:'<em>›</em>'}</div>`;
 }
+function localBackupMarkup() {
+  return `<div class="local-backup-card">
+    <strong>Backup local deste aparelho</strong>
+    <p>Exporta nome, foto/avatar, conversas, áudios, fotos, vídeos e anexos salvos neste navegador. Nada é enviado para nuvem.</p>
+    <div class="backup-actions">
+      <button class="primary-action small" id="exportBackup">Baixar backup local</button>
+      <button class="secondary-action" id="restoreBackup">Restaurar backup</button>
+    </div>
+  </div>`;
+}
+function profileEditorMarkup() {
+  const photo = userProfile.photo || 'nexo-logo.jpeg';
+  return `<div class="profile-editor">
+    <button class="profile-photo-edit" id="changeProfilePhoto" title="Trocar foto do usuário">
+      <img src="${photo}" alt="Foto do perfil">
+      <span>📷 Trocar foto do usuário</span>
+    </button>
+    <div class="profile-actions">
+      <button class="secondary-action" id="changePhotoAction">Escolher foto</button>
+      <button class="secondary-action" id="useAvatarAction">Usar avatar</button>
+    </div>
+    <label>Nome<input id="editProfileName" maxlength="36" value="${escapeHtml(userProfile.name || '')}" placeholder="Seu nome"></label>
+    <label>Frase de status / recado<input id="editProfileAbout" maxlength="80" value="${escapeHtml(userProfile.about || '')}" placeholder="Ex: Disponível, na escola, em aula..."></label>
+    <label>Nome de usuário<input id="editProfileUsername" maxlength="32" value="${escapeHtml(userProfile.username || '')}" placeholder="@usuario"></label>
+    <button class="primary-action" id="saveProfile">Salvar nome, foto e status</button>
+    <small class="profile-hint">Essas informações ficam salvas somente neste celular.</small>
+  </div>`;
+}
+function avatarEditorMarkup() {
+  const colors = ['#075e54','#128c7e','#34b7f1','#7c6a46','#8b5cf6','#c8738b','#4aa880','#dc9d57'];
+  const avatars = ['C','N','😊','⭐','🌙','🚀','🎧','💬'];
+  return `<div class="setting-group"><h3>Avatar</h3><p class="setting-note">Escolha um avatar rápido quando não quiser usar foto.</p><div class="avatar-grid">
+    ${avatars.map((a,i)=>`<button class="avatar-choice" data-avatar="${a}" data-color="${colors[i]}"><span style="background:${colors[i]}">${a}</span></button>`).join('')}
+  </div><button class="secondary-action" id="removeProfilePhoto">Usar avatar em vez da foto</button></div>`;
+}
+function exportLocalBackup() {
+  const payload = {
+    app: 'Nexo',
+    version: 1,
+    createdAt: new Date().toISOString(),
+    profile: userProfile,
+    conversations,
+    histories,
+    settings: {
+      phone: localStorage.getItem('nexo-phone') || '',
+      theme: localStorage.getItem('nexo-theme') || 'light',
+      wallpaper: localStorage.getItem('nexo-wall') || 'dots'
+    }
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nexo-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup local baixado');
+}
+async function restoreLocalBackup(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if(data.app !== 'Nexo' || !data.conversations || !data.histories) throw new Error('invalid');
+    const ok = confirm('Restaurar este backup vai substituir as conversas e o perfil salvos neste aparelho. Continuar?');
+    if(!ok) return;
+    userProfile = data.profile || userProfile;
+    conversations = data.conversations;
+    histories = data.histories;
+    if(data.settings?.phone) localStorage.setItem('nexo-phone', data.settings.phone);
+    if(data.settings?.theme) applyTheme(data.settings.theme);
+    if(data.settings?.wallpaper) applyWallpaper(data.settings.wallpaper);
+    saveAppState();
+    applyUserProfile();
+    updateDetailsPanel();
+    renderConversations();
+    renderMessages();
+    toast('Backup local restaurado');
+  } catch {
+    toast('Arquivo de backup inválido');
+  }
+}
 function showSetting(type) {
   const titles={profile:'Perfil',account:'Conta',privacy:'Privacidade',avatar:'Avatar',favorites:'Favoritos',chats:'Conversas',notifications:'Notificações',storage:'Armazenamento e dados',accessibility:'Acessibilidade',help:'Ajuda'};
   document.querySelector('#detailTitle').textContent=titles[type]||'Configurações';
   const body=document.querySelector('#settingDetailBody');
-  if(type==='chats') body.innerHTML=`<div class="setting-group"><h3>Tema</h3><div class="theme-cards"><button class="theme-card" data-theme="light"><div class="theme-preview"></div><span>Claro</span></button><button class="theme-card" data-theme="dark"><div class="theme-preview"></div><span>Escuro</span></button><button class="theme-card" data-theme="system"><div class="theme-preview"></div><span>Sistema</span></button></div><h3>Papel de parede</h3><div class="wallpapers"><button class="wallpaper" data-wall="dots" aria-label="Padrão"></button><button class="wallpaper" data-wall="blue" aria-label="Azul"></button><button class="wallpaper" data-wall="mint" aria-label="Verde"></button><button class="wallpaper" data-wall="plain" aria-label="Liso"></button></div></div><div class="setting-group"><h3>Conversas</h3>${row('↵','Enter para enviar','A tecla Enter envia sua mensagem',true,false)}${row('▤','Manter conversas arquivadas','Conversas permanecem arquivadas',true,true)}${row('⇩','Backup de conversas','Último backup: hoje, 14:02')}${row('⌁','Transferir conversas','Mover para outro dispositivo')}${row('♲','Histórico de conversas','Exportar, limpar ou apagar')}</div>`;
+  if(type==='chats') body.innerHTML=`<div class="setting-group"><h3>Tema</h3><div class="theme-cards"><button class="theme-card" data-theme="light"><div class="theme-preview"></div><span>Claro</span></button><button class="theme-card" data-theme="dark"><div class="theme-preview"></div><span>Escuro</span></button><button class="theme-card" data-theme="system"><div class="theme-preview"></div><span>Sistema</span></button></div><h3>Papel de parede</h3><div class="wallpapers"><button class="wallpaper" data-wall="dots" aria-label="Padrão"></button><button class="wallpaper" data-wall="blue" aria-label="Azul"></button><button class="wallpaper" data-wall="mint" aria-label="Verde"></button><button class="wallpaper" data-wall="plain" aria-label="Liso"></button></div></div><div class="setting-group"><h3>Conversas</h3>${row('↵','Enter para enviar','A tecla Enter envia sua mensagem',true,false)}${row('▤','Manter conversas arquivadas','Conversas permanecem arquivadas',true,true)}${row('♲','Histórico local','Mensagens e mídias ficam salvas neste aparelho')}</div>${localBackupMarkup()}`;
   else if(type==='privacy') body.innerHTML=`<div class="setting-group"><h3>Quem pode ver meus dados</h3>${row('◉','Visto por último e online','Meus contatos')}${row('▣','Foto do perfil','Todos')}${row('ⓘ','Recado','Meus contatos')}${row('◌','Status','Meus contatos, exceto 2')}${row('✓','Confirmações de leitura','Ativadas',true,true)}</div><div class="setting-group"><h3>Mensagens</h3>${row('⌛','Duração padrão','Desativada')}${row('⊘','Contatos bloqueados','2 contatos')}${row('♢','Proteção avançada','Desativada')}</div>`;
   else if(type==='notifications') body.innerHTML=`<div class="setting-group"><h3>Mensagens</h3>${row('♧','Sons de conversa','Reproduzir sons recebidos e enviados',true,true)}${row('▣','Notificações na área de trabalho','Mostrar prévias de mensagens',true,true)}${row('◌','Reações','Avisar sobre reações',true,true)}</div><div class="setting-group"><h3>Chamadas</h3>${row('♧','Toque','Nexo')}${row('◔','Silenciar desconhecidos','Chamadas ficam na lista',true,false)}</div>`;
   else if(type==='storage') body.innerHTML=`<div class="setting-group"><h3>Uso</h3>${row('▤','Gerenciar armazenamento','1,2 GB de 128 GB usados')}${row('⇅','Uso de rede','Enviados: 184 MB · Recebidos: 510 MB')}</div><div class="setting-group"><h3>Download automático</h3>${row('▧','Fotos','Wi-Fi e dados móveis')}${row('▶','Vídeos','Apenas Wi-Fi')}${row('▤','Documentos','Apenas Wi-Fi')}${row('♧','Áudios','Wi-Fi e dados móveis')}</div>`;
   else if(type==='favorites') body.innerHTML=`<div class="feature-item"><div class="avatar avatar-lia">L</div><div><strong>Lia Martins</strong><small>Vamos naquele café novo?</small></div><time>14:28</time></div><div class="feature-item"><div class="avatar" style="background:#6c5ce7">N</div><div><strong>Equipe Nexo</strong><small>O protótipo ficou incrível!</small></div><time>Ontem</time></div>`;
-  else if(type==='profile') body.innerHTML=`<div class="feature-empty"><img src="nexo-logo.jpeg" alt="Nexo" style="width:120px;height:120px;border-radius:36px;object-fit:cover"><h3>Colli</h3><p>Olá! Estou usando o Nexo.</p></div><div class="setting-group">${row('✎','Nome','Colli')}${row('ⓘ','Recado','Olá! Estou usando o Nexo.')}${row('@','Nome de usuário','@colli')}</div>`;
+  else if(type==='avatar') body.innerHTML=avatarEditorMarkup();
+  else if(type==='profile') body.innerHTML=profileEditorMarkup();
   else body.innerHTML=`<div class="setting-group"><h3>${titles[type]}</h3>${row('♢','Segurança e controle','Ajuste suas preferências')}${row('◉','Informações pessoais','Gerencie seus dados')}${row('▤','Opções adicionais','Mais recursos do Nexo')}</div>`;
   settingDetail.hidden=false;
   body.querySelectorAll('.switch').forEach(s=>s.onclick=()=>s.classList.toggle('on'));
   body.querySelectorAll('.theme-card').forEach(c=>{c.classList.toggle('active',c.dataset.theme===localStorage.getItem('nexo-theme'));c.onclick=()=>{applyTheme(c.dataset.theme);body.querySelectorAll('.theme-card').forEach(x=>x.classList.toggle('active',x===c));toast(`Tema ${c.textContent.trim()} aplicado`)}});
   body.querySelectorAll('.wallpaper').forEach(c=>{c.classList.toggle('active',c.dataset.wall===localStorage.getItem('nexo-wall'));c.onclick=()=>{applyWallpaper(c.dataset.wall);body.querySelectorAll('.wallpaper').forEach(x=>x.classList.toggle('active',x===c));toast('Papel de parede atualizado')}});
+  body.querySelector('#exportBackup')?.addEventListener('click',exportLocalBackup);
+  body.querySelector('#restoreBackup')?.addEventListener('click',()=>document.querySelector('#restoreBackupInput').click());
+  body.querySelector('#changeProfilePhoto')?.addEventListener('click',()=>document.querySelector('#profilePhotoInput').click());
+  body.querySelector('#changePhotoAction')?.addEventListener('click',()=>document.querySelector('#profilePhotoInput').click());
+  body.querySelector('#useAvatarAction')?.addEventListener('click',()=>showSetting('avatar'));
+  body.querySelector('#editProfileAbout')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();body.querySelector('#saveProfile')?.click()}});
+  body.querySelector('#saveProfile')?.addEventListener('click',()=>{
+    userProfile.name = document.querySelector('#editProfileName').value.trim() || 'Nexo';
+    userProfile.about = document.querySelector('#editProfileAbout').value.trim() || 'Disponível';
+    userProfile.username = document.querySelector('#editProfileUsername').value.trim() || `@${userProfile.name.toLowerCase().replace(/\W+/g,'')}`;
+    userProfile.avatar = initials(userProfile.name);
+    saveAppState();
+    applyUserProfile();
+    toast('Perfil atualizado');
+  });
+  body.querySelector('#removeProfilePhoto')?.addEventListener('click',()=>{
+    userProfile.photo = '';
+    saveAppState();
+    applyUserProfile();
+    showSetting('avatar');
+    toast('Avatar ativado');
+  });
+  body.querySelectorAll('.avatar-choice').forEach(btn=>btn.onclick=()=>{
+    userProfile.photo = '';
+    userProfile.avatar = btn.dataset.avatar;
+    userProfile.avatarColor = btn.dataset.color;
+    saveAppState();
+    applyUserProfile();
+    toast('Avatar atualizado');
+  });
 }
 function openFeature(type) {
   const view=document.querySelector('#featureView'), title=document.querySelector('#featureTitle'), content=document.querySelector('#featureContent');
@@ -149,15 +507,162 @@ document.querySelector('#featureBack').onclick=()=>{document.querySelector('#fea
 backdrop.onclick=closePanels;
 document.querySelectorAll('[data-setting]').forEach(b=>b.onclick=()=>showSetting(b.dataset.setting));
 document.querySelectorAll('.bottom-nav [data-section]').forEach(b=>{if(['updates','calls'].includes(b.dataset.section))b.onclick=()=>openFeature(b.dataset.section)});
+document.querySelector('#profilePhotoInput').onchange=async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  userProfile.photo = await fileToDataUrl(file);
+  saveAppState();
+  applyUserProfile();
+  showSetting('profile');
+  toast('Foto do perfil salva neste aparelho');
+  e.target.value = '';
+};
+document.querySelector('#restoreBackupInput').onchange=e=>{
+  const file = e.target.files[0];
+  if(file) restoreLocalBackup(file);
+  e.target.value = '';
+};
 
-// Cadastro por telefone (pronto para substituir pelo provedor de SMS em produção)
+// Cadastro por telefone: Firebase em produção, demo apenas em preview/local.
 const authScreen=document.querySelector('#authScreen'),phoneStep=document.querySelector('#phoneStep'),codeStep=document.querySelector('#codeStep');
-let pendingPhone='';
+let pendingPhone='', firebaseConfirmation=null, firebaseRecaptcha=null, authMode='demo';
 if(!localStorage.getItem('nexo-phone')) authScreen.hidden=false;
-document.querySelector('#phoneInput').addEventListener('input',e=>{const n=e.target.value.replace(/\D/g,'').slice(0,11);e.target.value=n.length>10?n.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3'):n.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3')});
-document.querySelector('#requestCode').onclick=()=>{const digits=document.querySelector('#phoneInput').value.replace(/\D/g,'');if(digits.length<8){document.querySelector('#phoneError').textContent='Digite um número de telefone válido.';return}pendingPhone=document.querySelector('#countryCode').value+digits;document.querySelector('#phonePreview').textContent=pendingPhone;phoneStep.hidden=true;codeStep.hidden=false;document.querySelector('#otpFields input').focus()};
+
+const phoneInput=document.querySelector('#phoneInput'), countryCodeSelect=document.querySelector('#countryCode');
+const phonePlaceholders={'+44':'07123 456789','+55':'(11) 99999-9999','+351':'912 345 678'};
+countryCodeSelect.addEventListener('change',()=>{
+  phoneInput.placeholder=phonePlaceholders[countryCodeSelect.value]||'Número de telefone';
+  phoneInput.value='';
+  document.querySelector('#phoneError').textContent='';
+  document.querySelector('#authModeHint').textContent='Digite seu número e aguarde o SMS de confirmação.';
+  phoneInput.focus();
+});
+
+function formatPhoneForCountry(rawValue, countryCode) {
+  let value=rawValue.replace(/[^\d+]/g,'');
+  value=value.replace(/(?!^)\+/g,'');
+  if(!value.startsWith('+')) {
+    const digits=value.replace(/\D/g,'').slice(0,15);
+    if(countryCode==='+44') value=digits.replace(/^(\d{5})(\d{0,6}).*/,'$1 $2').trim();
+    else if(countryCode==='+55') value=digits.length>10?digits.replace(/(\d{2})(\d{5})(\d{0,4}).*/,'($1) $2-$3'):digits.replace(/(\d{2})(\d{4})(\d{0,4}).*/,'($1) $2-$3');
+    else if(countryCode==='+351') value=digits.replace(/^(\d{3})(\d{0,3})(\d{0,3}).*/,'$1 $2 $3').trim();
+    else value=digits;
+  }
+  return value;
+}
+
+phoneInput.addEventListener('input',e=>{
+  e.target.value=formatPhoneForCountry(e.target.value, countryCodeSelect.value);
+});
+
+function normalizePhoneNumber(countryCode, rawValue) {
+  const raw = rawValue.trim();
+  let digits = raw.replace(/\D/g,'');
+  if(!digits) return { ok:false, error:'Digite um número de telefone válido.' };
+
+  if(raw.startsWith('+')) {
+    const e164='+'+digits;
+    return validateE164(e164);
+  }
+
+  if(raw.startsWith('00')) {
+    return validateE164('+'+digits.slice(2));
+  }
+
+  const countryDigits=countryCode.replace(/\D/g,'');
+  if(digits.startsWith(countryDigits) && digits.length > countryDigits.length + 5) {
+    return validateE164('+'+digits);
+  }
+
+  if(countryCode==='+44') digits=digits.replace(/^0+/,'');
+  const e164=countryCode+digits;
+  return validateE164(e164);
+}
+
+function validateE164(phone) {
+  const digits=phone.replace(/\D/g,'');
+  if(!/^\+\d{8,15}$/.test(phone)) return { ok:false, error:'Use o número com DDD/código local. Ex.: +44 7123 456789.' };
+  if(phone.startsWith('+44') && !/^\+44[1-9]\d{8,9}$/.test(phone)) return { ok:false, error:'Número do Reino Unido inválido. Use assim: 07123 456789 ou +44 7123 456789.' };
+  return { ok:true, phone, digits };
+}
+
+function localAuthDemoAllowed() {
+  return ['localhost', '127.0.0.1', ''].includes(location.hostname) || location.protocol === 'file:';
+}
+
+function firebaseConfigReady() {
+  const cfg = window.NEXO_FIREBASE_CONFIG;
+  return !!(window.firebase && cfg && cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId);
+}
+
+function initFirebaseAuth() {
+  if(!firebaseConfigReady()) return false;
+  if(!firebase.apps.length) firebase.initializeApp(window.NEXO_FIREBASE_CONFIG);
+  firebase.auth().languageCode = 'pt-BR';
+  return true;
+}
+
+function firebasePhoneErrorMessage(err) {
+  const code=err?.code || 'erro-desconhecido';
+  const messages={
+    'auth/invalid-phone-number':'Número inválido para SMS. No Reino Unido use 07123 456789 ou +44 7123 456789.',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos antes de pedir outro SMS.',
+    'auth/quota-exceeded':'A cota de SMS do Firebase acabou. No plano gratuito, novos projetos podem ter limite diário baixo.',
+    'auth/captcha-check-failed':'O reCAPTCHA falhou. Recarregue a página e tente novamente.',
+    'auth/unauthorized-domain':'Este domínio não está autorizado no Firebase. Use o link publicado do GitHub Pages ou autorize este domínio.',
+    'auth/network-request-failed':'Falha de rede ao falar com o Firebase. Confira a internet e tente novamente.'
+  };
+  return messages[code] || `Não consegui enviar o SMS pelo Firebase (${code}).`;
+}
+
+async function sendPhoneCode(phone) {
+  document.querySelector('#phoneError').textContent = '';
+  document.querySelector('#codeError').textContent = '';
+  firebaseConfirmation = null;
+  if(initFirebaseAuth()) {
+    authMode = 'firebase';
+    try {
+      if(firebaseRecaptcha?.clear) firebaseRecaptcha.clear();
+      document.querySelector('#recaptchaContainer').innerHTML = '';
+      firebaseRecaptcha = new firebase.auth.RecaptchaVerifier('recaptchaContainer', { size: 'invisible' });
+      firebaseConfirmation = await firebase.auth().signInWithPhoneNumber(phone, firebaseRecaptcha);
+      document.querySelector('#authModeHint').textContent = 'SMS enviado. Digite o código recebido no telefone.';
+      return true;
+    } catch(err) {
+      if(localAuthDemoAllowed()) {
+        authMode = 'firebase';
+        document.querySelector('#phoneError').textContent = `${firebasePhoneErrorMessage(err)} No preview local, se quiser testar SMS real, prefira http://localhost:4187 em vez de 127.0.0.1.`;
+        document.querySelector('#authModeHint').textContent = 'O código só aparece depois do SMS real ser enviado.';
+        return false;
+      }
+      authMode = 'firebase';
+      document.querySelector('#phoneError').textContent = firebasePhoneErrorMessage(err);
+      document.querySelector('#authModeHint').textContent = 'Cadastro real por SMS ativo. Tente novamente em alguns segundos.';
+      return false;
+    }
+  }
+  if(!localAuthDemoAllowed()) {
+    authMode = 'firebase';
+    document.querySelector('#phoneError').textContent = 'Firebase não carregou. Recarregue a página e tente novamente.';
+    document.querySelector('#authModeHint').textContent = 'Cadastro real por SMS ativo.';
+    return false;
+  }
+  authMode = 'demo';
+  document.querySelector('#authModeHint').innerHTML = 'Modo de teste local: use o código <strong>123456</strong>';
+  return true;
+}
+
+async function verifyPhoneCode(code) {
+  if(authMode === 'firebase' && firebaseConfirmation) {
+    await firebaseConfirmation.confirm(code);
+    return true;
+  }
+  return code === '123456';
+}
+
+document.querySelector('#requestCode').onclick=async()=>{const phoneResult=normalizePhoneNumber(countryCodeSelect.value,phoneInput.value);document.querySelector('#phoneError').textContent='';if(!phoneResult.ok){document.querySelector('#phoneError').textContent=phoneResult.error;return}pendingPhone=phoneResult.phone;document.querySelector('#requestCode').disabled=true;document.querySelector('#requestCode').textContent='Enviando...';const ok=await sendPhoneCode(pendingPhone);document.querySelector('#requestCode').disabled=false;document.querySelector('#requestCode').textContent='Continuar';if(!ok)return;document.querySelector('#phonePreview').textContent=pendingPhone;phoneStep.hidden=true;codeStep.hidden=false;document.querySelector('#otpFields input').focus()};
 const otpInputs=[...document.querySelectorAll('#otpFields input')];otpInputs.forEach((el,i)=>{el.oninput=()=>{el.value=el.value.replace(/\D/g,'').slice(-1);if(el.value&&otpInputs[i+1])otpInputs[i+1].focus()};el.onkeydown=e=>{if(e.key==='Backspace'&&!el.value&&otpInputs[i-1])otpInputs[i-1].focus()};el.onpaste=e=>{e.preventDefault();const code=e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);code.split('').forEach((v,j)=>{if(otpInputs[j])otpInputs[j].value=v});otpInputs[Math.min(code.length,5)].focus()}});
 document.querySelector('#editPhone').onclick=()=>{codeStep.hidden=true;phoneStep.hidden=false};
-document.querySelector('#verifyCode').onclick=()=>{const code=otpInputs.map(i=>i.value).join('');if(code!=='123456'){document.querySelector('#codeError').textContent='Código incorreto. No teste, use 123456.';return}localStorage.setItem('nexo-phone',pendingPhone);authScreen.hidden=true;toast('Número confirmado. Bem-vindo ao Nexo!')};
+document.querySelector('#verifyCode').onclick=async()=>{const code=otpInputs.map(i=>i.value).join('');document.querySelector('#codeError').textContent='';document.querySelector('#verifyCode').disabled=true;document.querySelector('#verifyCode').textContent='Verificando...';try{const ok=await verifyPhoneCode(code);if(!ok){document.querySelector('#codeError').textContent=authMode==='demo'?'Código incorreto. No teste, use 123456.':'Código incorreto ou expirado.';return}localStorage.setItem('nexo-phone',pendingPhone);localStorage.setItem('nexo-auth-mode',authMode);saveAppState();authScreen.hidden=true;toast('Número confirmado. Bem-vindo ao Nexo!')}catch{document.querySelector('#codeError').textContent='Não consegui confirmar o código. Tente novamente.'}finally{document.querySelector('#verifyCode').disabled=false;document.querySelector('#verifyCode').textContent='Verificar e entrar'}};
 
 if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
