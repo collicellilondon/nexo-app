@@ -16,7 +16,7 @@ let userProfile = loadState('nexo-profile', {
 removeSeededDemoData();
 let activeId = conversations[0]?.id || null, filter = 'all', recordingSeconds = 0, recordInterval, mediaRecorder, audioChunks = [], activeStream;
 let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
-let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null;
+let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null, profileRefreshInterval = null;
 let currentPhone = localStorage.getItem('nexo-phone') || '';
 let deferredInstallPrompt = null;
 const list = document.querySelector('#conversationList');
@@ -147,7 +147,7 @@ async function resizeImageForProfile(file) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const size = 512;
+      const size = 384;
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
@@ -156,7 +156,7 @@ async function resizeImageForProfile(file) {
       const width = img.width * scale;
       const height = img.height * scale;
       ctx.drawImage(img, (size - width) / 2, (size - height) / 2, width, height);
-      resolve(canvas.toDataURL('image/jpeg', .82));
+      resolve(canvas.toDataURL('image/jpeg', .74));
     };
     img.onerror = () => resolve(rawUrl);
     img.src = rawUrl;
@@ -349,21 +349,23 @@ function initRealtimeSync() {
   listenMyChats();
   listenActiveConversation();
   setTimeout(refreshKnownContactsRegistration, 1500);
+  setTimeout(refreshConversationProfilesFromUsers, 1800);
+  if(!profileRefreshInterval) profileRefreshInterval = setInterval(refreshConversationProfilesFromUsers, 12000);
   return true;
 }
 
-function syncMyProfile() {
+async function syncMyProfile() {
   if(!db || !currentPhone) return;
   const docId = phoneDocId(currentPhone);
   if(!docId) return;
   const profile = publicProfilePayload();
-  db.collection('users').doc(docId).set({
+  await db.collection('users').doc(docId).set({
     uid: currentFirebaseUser()?.uid || '',
     phoneDigits: docId,
     ...profile,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).catch(()=>{});
-  syncProfileIntoMyChats(profile);
+  }, { merge: true });
+  await syncProfileIntoMyChats(profile);
 }
 
 async function syncProfileIntoMyChats(profile = publicProfilePayload()) {
@@ -401,6 +403,40 @@ async function lookupNexoContactsInFirestore(phones) {
     }
   }));
   return new Set(hits.filter(Boolean));
+}
+
+async function refreshConversationProfilesFromUsers() {
+  if(!initFirestore() || !currentFirebaseUser()?.uid) return;
+  const targets = conversations.filter(c => c.phone && c.phone !== currentPhone);
+  if(!targets.length) return;
+  let changed = false;
+  await Promise.all(targets.map(async c => {
+    const docId = phoneDocId(c.phone);
+    if(!docId) return;
+    try {
+      const snap = await db.collection('users').doc(docId).get();
+      if(!snap.exists) return;
+      const profile = snap.data() || {};
+      changed = applyRemoteProfileToConversation(c, {
+        uid: profile.uid || c.uid || '',
+        phone: profile.phone || c.phone,
+        name: profile.name || c.name,
+        about: profile.about || c.about,
+        username: profile.username || c.username,
+        avatar: profile.avatar || c.avatar,
+        avatarColor: profile.avatarColor || c.avatarColor,
+        photo: profile.photo || ''
+      }) || changed;
+    } catch {
+      // Mantém o perfil local; a próxima sincronização tenta novamente.
+    }
+  }));
+  if(changed) {
+    saveAppState();
+    renderConversations();
+    updateChatHeader(conversations.find(x=>x.id===activeId));
+    updateDetailsPanel();
+  }
 }
 
 async function refreshKnownContactsRegistration() {
@@ -531,6 +567,94 @@ async function sendRemoteText(c, message) {
   }
 }
 
+async function sendRemoteAudio(c, message) {
+  if(!c?.phone) return;
+  if(!message?.url) return;
+  if(message.url.length > 700000) {
+    message.syncing = false;
+    message.syncFailed = true;
+    saveAppState();
+    renderMessages();
+    toast('Áudio muito grande para sincronizar agora. Grave um áudio menor.');
+    return;
+  }
+  if(!initRealtimeSync()) {
+    message.syncFailed = true;
+    saveAppState();
+    renderMessages();
+    toast('Áudio salvo neste aparelho. Sincronização ainda não conectada.');
+    return;
+  }
+  const chatId = remoteChatIdForConversation(c);
+  if(!chatId) return;
+  try {
+    const me = currentFirebaseUser();
+    const peer = await resolveRemoteUserByPhone(c.phone);
+    if(!me?.uid || !peer?.uid) {
+      message.syncFailed = true;
+      saveAppState();
+      renderMessages();
+      toast('Contato ainda não encontrado no Nexo. Peça para ele entrar com o telefone.');
+      return;
+    }
+    const ref = db.collection('chats').doc(chatId).collection('messages').doc();
+    message.remoteId = ref.id;
+    message.syncing = true;
+    applyRemoteProfileToConversation(c, peer);
+    saveAppState();
+    const participantUids = [me.uid, peer.uid].sort();
+    const participantPhones = [currentPhone, c.phone].sort();
+    await db.collection('chats').doc(chatId).set({
+      id: chatId,
+      participants: [phoneDigits(currentPhone), phoneDigits(c.phone)].sort(),
+      phones: participantPhones,
+      participantUids,
+      participantProfiles: {
+        [me.uid]: { uid: me.uid, ...publicProfilePayload() },
+        [peer.uid]: {
+          uid: peer.uid,
+          phone: peer.phone || c.phone,
+          name: peer.name || c.name || c.phone,
+          about: peer.about || c.about || 'Disponível',
+          username: peer.username || '',
+          avatar: peer.avatar || initials(peer.name || c.name || c.phone),
+          avatarColor: peer.avatarColor || c.avatarColor || c.color || colorForText(c.phone),
+          photo: peer.photo || ''
+        }
+      },
+      lastMessage: '🎙️ Áudio',
+      lastMessageType: 'audio',
+      lastSenderPhone: currentPhone,
+      lastSenderUid: me.uid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    await ref.set({
+      id: ref.id,
+      type: 'audio',
+      url: message.url,
+      duration: message.duration || '0:01',
+      mimeType: message.mimeType || 'audio/webm',
+      senderUid: me.uid,
+      recipientUid: peer.uid,
+      senderPhone: currentPhone,
+      recipientPhone: c.phone,
+      senderName: userProfile.name || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      clientCreatedAt: message.localCreatedAt || new Date().toISOString()
+    });
+    message.syncing = false;
+    message.synced = true;
+    saveAppState();
+    renderMessages();
+  } catch {
+    message.syncing = false;
+    message.syncFailed = true;
+    saveAppState();
+    renderMessages();
+    toast('Áudio salvo localmente. Não foi possível entregar no outro celular.');
+  }
+}
+
 function listenMyChats() {
   const me = currentFirebaseUser();
   if(myChatsUnsubscribe) {
@@ -610,27 +734,35 @@ function listenActiveConversation() {
       let changed = false;
       snapshot.docs.forEach(doc => {
         const data = doc.data() || {};
-        if(data.type !== 'text' || !data.text) return;
+        if(data.type !== 'text' && data.type !== 'audio') return;
         const existing = local.find(m => m.remoteId === doc.id);
         if(existing) {
           existing.synced = true;
           existing.syncing = false;
           return;
         }
-        local.push({
+        const item = {
           mine: data.senderUid ? data.senderUid === currentFirebaseUser()?.uid : data.senderPhone === currentPhone,
-          text: data.text,
           time: remoteTimestampToTime(data.createdAt, data.clientCreatedAt),
           remoteId: doc.id,
           synced: true
-        });
+        };
+        if(data.type === 'audio') {
+          item.audio = true;
+          item.url = data.url || '';
+          item.duration = data.duration || '0:01';
+          item.mimeType = data.mimeType || 'audio/webm';
+        } else {
+          item.text = data.text;
+        }
+        local.push(item);
         changed = true;
       });
       if(changed) {
         histories[activeId] = local;
         const latest = local[local.length - 1];
-        if(latest?.text) {
-          c.preview = latest.text;
+        if(latest?.text || latest?.audio) {
+          c.preview = latest.audio ? '🎙️ Áudio' : latest.text;
           c.time = latest.time || now();
         }
         saveAppState();
@@ -662,7 +794,42 @@ document.querySelector('#voiceButton').onclick=async()=>{
     recordInterval=setInterval(()=>{recordingSeconds++;document.querySelector('#recordTime').textContent=`${Math.floor(recordingSeconds/60)}:${String(recordingSeconds%60).padStart(2,'0')}`},1000);
   } catch(e) { toast('Permita o acesso ao microfone para gravar'); }
 };
-function finishRecording(cancel=false){clearInterval(recordInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive'){mediaRecorder.onstop=async()=>{if(!cancel&&audioChunks.length){const url=await blobToDataUrl(new Blob(audioChunks,{type:mediaRecorder.mimeType||'audio/webm'}));const seconds=Math.max(recordingSeconds,1);histories[activeId].push({mine:true,audio:true,url,duration:`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`,time:now()});saveAppState();renderMessages();toast('Áudio salvo neste aparelho')}else if(cancel)toast('Gravação cancelada')};mediaRecorder.stop()}activeStream?.getTracks().forEach(t=>t.stop());document.querySelector('#recorder').hidden=true;document.querySelector('#composer').hidden=false}
+function finishRecording(cancel=false){
+  clearInterval(recordInterval);
+  if(mediaRecorder&&mediaRecorder.state!=='inactive'){
+    mediaRecorder.onstop=async()=>{
+      if(!cancel&&audioChunks.length){
+        const blob = new Blob(audioChunks,{type:mediaRecorder.mimeType||'audio/webm'});
+        const url=await blobToDataUrl(blob);
+        const seconds=Math.max(recordingSeconds,1);
+        const c=conversations.find(x=>x.id===activeId);
+        const message={
+          mine:true,
+          audio:true,
+          url,
+          mimeType: blob.type || 'audio/webm',
+          duration:`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`,
+          time:now(),
+          localCreatedAt:new Date().toISOString(),
+          syncing:false
+        };
+        histories[activeId].push(message);
+        if(c) {
+          c.preview='🎙️ Áudio';
+          c.time=message.time;
+        }
+        saveAppState();
+        renderConversations();
+        renderMessages();
+        sendRemoteAudio(c,message);
+      } else if(cancel) toast('Gravação cancelada');
+    };
+    mediaRecorder.stop();
+  }
+  activeStream?.getTracks().forEach(t=>t.stop());
+  document.querySelector('#recorder').hidden=true;
+  document.querySelector('#composer').hidden=false;
+}
 document.querySelector('#cancelRecord').onclick=()=>finishRecording(true);
 document.querySelector('#sendRecord').onclick=()=>finishRecording(false);
 document.querySelectorAll('.toggle').forEach(t=>t.onclick=()=>t.classList.toggle('on'));
@@ -1133,15 +1300,25 @@ function showSetting(type) {
   body.querySelector('#changePhotoAction')?.addEventListener('click',()=>document.querySelector('#profilePhotoInput').click());
   body.querySelector('#useAvatarAction')?.addEventListener('click',()=>showSetting('avatar'));
   body.querySelector('#editProfileAbout')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();body.querySelector('#saveProfile')?.click()}});
-  body.querySelector('#saveProfile')?.addEventListener('click',()=>{
+  body.querySelector('#saveProfile')?.addEventListener('click',async e=>{
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando...';
     userProfile.name = document.querySelector('#editProfileName').value.trim() || 'Nexo';
     userProfile.about = document.querySelector('#editProfileAbout').value.trim() || 'Disponível';
     userProfile.username = document.querySelector('#editProfileUsername').value.trim() || `@${userProfile.name.toLowerCase().replace(/\W+/g,'')}`;
     userProfile.avatar = initials(userProfile.name);
     saveAppState();
     applyUserProfile();
-    syncMyProfile();
-    toast('Perfil atualizado');
+    try {
+      await syncMyProfile();
+      toast('Perfil atualizado e sincronizado');
+    } catch {
+      toast('Perfil salvo neste aparelho. Nuvem indisponível.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Salvar nome, foto e status';
+    }
   });
   body.querySelector('#removeProfilePhoto')?.addEventListener('click',()=>{
     userProfile.photo = '';
@@ -1197,12 +1374,17 @@ document.querySelectorAll('.bottom-nav [data-section]').forEach(b=>b.onclick=()=
 document.querySelector('#profilePhotoInput').onchange=async e=>{
   const file = e.target.files[0];
   if(!file) return;
+  toast('Atualizando foto...');
   userProfile.photo = await resizeImageForProfile(file);
   saveAppState();
   applyUserProfile();
-  syncMyProfile();
+  try {
+    await syncMyProfile();
+  } catch {
+    toast('Foto salva neste aparelho. Nuvem indisponível.');
+  }
   showSetting('profile');
-  toast('Foto do perfil salva neste aparelho');
+  toast('Foto do perfil sincronizada');
   e.target.value = '';
 };
 document.querySelector('#restoreBackupInput').onchange=e=>{
