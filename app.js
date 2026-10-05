@@ -694,7 +694,7 @@ renderConversations(); renderMessages(); updateSendState();
 const settingsPanel = document.querySelector('#settingsPanel');
 const settingDetail = document.querySelector('#settingDetail');
 const backdrop = document.querySelector('#panelBackdrop');
-const savedTheme = localStorage.getItem('nexo-theme') || 'light';
+const savedTheme = localStorage.getItem('nexo-theme') || 'dark';
 const savedWall = localStorage.getItem('nexo-wall') || 'dots';
 applyTheme(savedTheme); applyWallpaper(savedWall);
 
