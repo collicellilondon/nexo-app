@@ -282,6 +282,56 @@ body::after {
   padding: 5px 10px 12px;
 }
 
+.empty-conversations,
+.conversation-empty-panel {
+  margin: 18px 8px;
+  padding: 24px 18px;
+  border: 1px solid rgba(8,122,255,.1);
+  border-radius: 24px;
+  background: rgba(255,255,255,.7);
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-conversations strong,
+.conversation-empty-panel h2 {
+  display: block;
+  margin: 8px 0 6px;
+  color: var(--ink);
+}
+
+.empty-conversations p,
+.conversation-empty-panel p {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.empty-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 10px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(18,216,210,.18), rgba(8,122,255,.12));
+  font-size: 25px;
+}
+
+.conversation-empty-panel {
+  width: min(390px, calc(100% - 32px));
+  margin: 70px auto;
+  box-shadow: 0 20px 50px rgba(6,20,50,.08);
+}
+
+.conversation-empty-panel img {
+  width: 82px;
+  height: 82px;
+  border-radius: 26px;
+  object-fit: cover;
+  box-shadow: 0 16px 36px rgba(8,122,255,.18);
+}
+
 .conversation {
   margin-bottom: 6px;
   border: 1px solid transparent;
@@ -1174,6 +1224,81 @@ body::after {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.contact-tools {
+  display: grid;
+  gap: 11px;
+  margin-bottom: 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.contact-tools p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.manual-contact-field {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manual-contact-field input {
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: var(--paper);
+  color: var(--ink);
+  outline: 0;
+}
+
+.manual-contact-field input:focus {
+  border-color: #168ec6;
+  box-shadow: 0 0 0 3px rgba(22,142,198,.12);
+}
+
+.contact-result {
+  width: 100%;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.contact-result > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: linear-gradient(135deg,#087aff,#12d8d2);
+  color: white;
+  font-weight: 800;
+}
+
+.contact-result div {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+
+.contact-result small {
+  color: var(--muted);
 }
 
 .backup-actions {
