@@ -16,7 +16,7 @@ let userProfile = loadState('nexo-profile', {
 removeSeededDemoData();
 let activeId = conversations[0]?.id || null, filter = 'all', recordingSeconds = 0, recordInterval, mediaRecorder, audioChunks = [], activeStream;
 let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
-let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null, profileRefreshInterval = null;
+let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null, myChatsUnsubscribe = null, profileRefreshInterval = null, notificationToken = localStorage.getItem('nexo-fcm-token') || '';
 let currentPhone = localStorage.getItem('nexo-phone') || '';
 let deferredInstallPrompt = null;
 const list = document.querySelector('#conversationList');
@@ -351,6 +351,7 @@ function initRealtimeSync() {
   setTimeout(refreshKnownContactsRegistration, 1500);
   setTimeout(refreshConversationProfilesFromUsers, 1800);
   if(!profileRefreshInterval) profileRefreshInterval = setInterval(refreshConversationProfilesFromUsers, 12000);
+  if(notificationSupportStatus() === 'granted') setupPushNotifications();
   return true;
 }
 
@@ -554,6 +555,7 @@ async function sendRemoteText(c, message) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       clientCreatedAt: message.localCreatedAt || new Date().toISOString()
     });
+    sendPushToRecipient(c, message.text, ref.id);
     message.syncing = false;
     message.synced = true;
     saveAppState();
@@ -642,6 +644,7 @@ async function sendRemoteAudio(c, message) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       clientCreatedAt: message.localCreatedAt || new Date().toISOString()
     });
+    sendPushToRecipient(c, '🎙️ Áudio', ref.id);
     message.syncing = false;
     message.synced = true;
     saveAppState();
@@ -1220,6 +1223,19 @@ function avatarEditorMarkup() {
     ${avatars.map((a,i)=>`<button class="avatar-choice" data-avatar="${a}" data-color="${colors[i]}"><span style="background:${colors[i]}">${a}</span></button>`).join('')}
   </div><button class="secondary-action" id="removeProfilePhoto">Usar avatar em vez da foto</button></div>`;
 }
+function notificationsEditorMarkup() {
+  return `<div class="setting-group">
+    <h3>Notificações do aparelho</h3>
+    <div class="local-backup-card notification-card">
+      <strong>Mensagens fora do app</strong>
+      <p id="notificationStatusText">${notificationStatusLabel()}</p>
+      <button class="primary-action small" id="enablePushNotifications">Ativar neste aparelho</button>
+    </div>
+    ${row('','Prévia da mensagem','Mostrar nome e conteúdo',true,true)}
+    ${row('','Som de mensagem','Usar o som padrão do aparelho',true,true)}
+  </div>
+  <p class="setting-note">No iPhone, as notificações web só funcionam com o Nexo instalado na Tela de Início. No Android, aceite a permissão no Chrome/PWA.</p>`;
+}
 function exportLocalBackup() {
   const payload = {
     app: 'Nexo',
@@ -1272,7 +1288,7 @@ function showSetting(type) {
   if(type==='contacts') body.innerHTML=contactDiscoveryMarkup();
   else if(type==='chats') body.innerHTML=`<div class="setting-group"><h3>Tema</h3><div class="theme-cards"><button class="theme-card" data-theme="light"><div class="theme-preview"></div><span>Claro</span></button><button class="theme-card" data-theme="dark"><div class="theme-preview"></div><span>Escuro</span></button><button class="theme-card" data-theme="system"><div class="theme-preview"></div><span>Sistema</span></button></div><h3>Papel de parede</h3><div class="wallpapers"><button class="wallpaper" data-wall="dots" aria-label="Padrão"></button><button class="wallpaper" data-wall="blue" aria-label="Azul"></button><button class="wallpaper" data-wall="mint" aria-label="Verde"></button><button class="wallpaper" data-wall="plain" aria-label="Liso"></button></div></div><div class="setting-group"><h3>Conversas</h3>${row('↵','Enter para enviar','A tecla Enter envia sua mensagem',true,false)}${row('▤','Manter conversas arquivadas','Conversas permanecem arquivadas',true,true)}${row('♲','Histórico local','Mensagens e mídias ficam salvas neste aparelho')}</div>${localBackupMarkup()}`;
   else if(type==='privacy') body.innerHTML=`<div class="setting-group"><h3>Quem pode ver meus dados</h3>${row('◉','Visto por último e online','Meus contatos')}${row('▣','Foto do perfil','Meus contatos')}${row('ⓘ','Recado','Meus contatos')}${row('◌','Status','Meus contatos')}${row('✓','Confirmações de leitura','Ativadas',true,true)}</div><div class="setting-group"><h3>Mensagens</h3>${row('⌛','Duração padrão','Desativada')}${row('⊘','Contatos bloqueados','Nenhum contato')}${row('♢','Proteção avançada','Desativada')}</div>`;
-  else if(type==='notifications') body.innerHTML=`<div class="setting-group"><h3>Mensagens</h3>${row('♧','Sons de conversa','Reproduzir sons recebidos e enviados',true,true)}${row('▣','Notificações na área de trabalho','Mostrar prévias de mensagens',true,true)}${row('◌','Reações','Avisar sobre reações',true,true)}</div><div class="setting-group"><h3>Chamadas</h3>${row('♧','Toque','Nexo')}${row('◔','Silenciar desconhecidos','Chamadas ficam na lista',true,false)}</div>`;
+  else if(type==='notifications') body.innerHTML=notificationsEditorMarkup();
   else if(type==='storage') body.innerHTML=`<div class="setting-group"><h3>Uso</h3>${row('▤','Gerenciar armazenamento','Dados salvos somente neste aparelho')}${row('⇅','Uso de rede','Disponível quando a sincronização estiver ativa')}</div><div class="setting-group"><h3>Download automático</h3>${row('▧','Fotos','Perguntar antes de salvar')}${row('▶','Vídeos','Perguntar antes de salvar')}${row('▤','Documentos','Perguntar antes de salvar')}${row('♧','Áudios','Salvar quando enviado ou recebido')}</div>`;
   else if(type==='favorites') body.innerHTML=`<div class="feature-empty"><div class="big-icon">☆</div><strong>Nenhum favorito ainda</strong><p>Mensagens e contatos marcados como favoritos aparecerão aqui.</p></div>`;
   else if(type==='avatar') body.innerHTML=avatarEditorMarkup();
@@ -1284,6 +1300,15 @@ function showSetting(type) {
   body.querySelectorAll('.wallpaper').forEach(c=>{c.classList.toggle('active',c.dataset.wall===localStorage.getItem('nexo-wall'));c.onclick=()=>{applyWallpaper(c.dataset.wall);body.querySelectorAll('.wallpaper').forEach(x=>x.classList.toggle('active',x===c));toast('Papel de parede atualizado')}});
   body.querySelector('#exportBackup')?.addEventListener('click',exportLocalBackup);
   body.querySelector('#restoreBackup')?.addEventListener('click',()=>document.querySelector('#restoreBackupInput').click());
+  body.querySelector('#enablePushNotifications')?.addEventListener('click',async()=>{
+    const btn = body.querySelector('#enablePushNotifications');
+    btn.disabled = true;
+    btn.textContent = 'Ativando...';
+    const ok = await setupPushNotifications({ requestPermission: true });
+    body.querySelector('#notificationStatusText').textContent = notificationStatusLabel();
+    btn.disabled = false;
+    btn.textContent = ok ? 'Ativado neste aparelho' : 'Tentar novamente';
+  });
   body.querySelector('#pickDeviceContact')?.addEventListener('click', pickDeviceContacts);
   body.querySelector('#addManualContact')?.addEventListener('click', async()=>{
     const name = body.querySelector('#manualContactName').value.trim();
@@ -1470,6 +1495,114 @@ function initFirebaseAuth() {
   if(!firebase.apps.length) firebase.initializeApp(window.NEXO_FIREBASE_CONFIG);
   firebase.auth().languageCode = 'pt-BR';
   return true;
+}
+
+function notificationSupportStatus() {
+  if(!('Notification' in window)) return 'unsupported';
+  if(!('serviceWorker' in navigator)) return 'unsupported';
+  if(!window.firebase?.messaging) return 'unsupported';
+  if(!window.NEXO_FIREBASE_VAPID_KEY) return 'missing-vapid';
+  return Notification.permission || 'default';
+}
+
+function notificationStatusLabel() {
+  const status = notificationSupportStatus();
+  if(status === 'granted') return 'Ativadas neste aparelho';
+  if(status === 'denied') return 'Bloqueadas no navegador';
+  if(status === 'missing-vapid') return 'Aguardando chave Web Push do Firebase';
+  if(status === 'unsupported') return 'Indisponível neste navegador';
+  return 'Toque para ativar';
+}
+
+async function saveNotificationToken(token) {
+  const me = currentFirebaseUser();
+  if(!db || !currentPhone || !me?.uid || !token) return;
+  const docId = phoneDocId(currentPhone);
+  await db.collection('users').doc(docId).set({
+    uid: me.uid,
+    phone: currentPhone,
+    [`fcmTokens.${token}`]: {
+      token,
+      platform: navigator.userAgent.slice(0, 180),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    },
+    notificationUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  notificationToken = token;
+  localStorage.setItem('nexo-fcm-token', token);
+}
+
+async function setupPushNotifications({ requestPermission = false } = {}) {
+  if(notificationSupportStatus() === 'unsupported') {
+    toast('Notificações não estão disponíveis neste navegador.');
+    return false;
+  }
+  if(notificationSupportStatus() === 'missing-vapid') {
+    toast('Configure a chave Web Push do Firebase para ativar notificações.');
+    return false;
+  }
+  let permission = Notification.permission;
+  if(permission !== 'granted' && requestPermission) {
+    permission = await Notification.requestPermission();
+  }
+  if(permission !== 'granted') {
+    if(requestPermission) toast('Permissão de notificação não foi ativada.');
+    return false;
+  }
+  if(!initFirebaseAuth()) return false;
+  try {
+    const registration = await navigator.serviceWorker.register('./service-worker.js');
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({
+      vapidKey: window.NEXO_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration
+    });
+    if(!token) {
+      toast('Não consegui gerar o token de notificação.');
+      return false;
+    }
+    await saveNotificationToken(token);
+    messaging.onMessage(payload => {
+      const title = payload.notification?.title || payload.data?.title || 'Nexo';
+      const body = payload.notification?.body || payload.data?.body || 'Nova mensagem';
+      if(document.visibilityState === 'visible') toast(`${title}: ${body}`);
+    });
+    if(requestPermission) toast('Notificações ativadas neste aparelho.');
+    return true;
+  } catch(err) {
+    toast('Não consegui ativar notificações neste aparelho.');
+    return false;
+  }
+}
+
+async function sendPushToRecipient(c, body, messageId = '') {
+  if(!c?.phone) return;
+  try {
+    const me = currentFirebaseUser();
+    const idToken = await me?.getIdToken?.();
+    if(!idToken) return;
+    const base = brandedOtpApiBase();
+    if(base === null) return;
+    const chatId = remoteChatIdForConversation(c);
+    await fetch(`${base}/api/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        recipientPhone: c.phone,
+        senderUid: me.uid,
+        senderPhone: currentPhone,
+        senderName: userProfile.name || 'Nexo',
+        body,
+        chatId,
+        messageId
+      })
+    }).catch(()=>{});
+  } catch {
+    // Push é auxiliar; a mensagem principal já foi salva no Firestore.
+  }
 }
 
 function brandedOtpApiBase() {
