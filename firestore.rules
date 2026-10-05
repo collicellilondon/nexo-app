@@ -2,15 +2,40 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function signedInByPhone() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == "phone";
     }
 
-    // Regras iniciais para teste fechado do Nexo.
-    // Permite somente usuários autenticados por telefone.
-    // Antes de abrir para público, restringir chats aos participantes.
-    match /{document=**} {
-      allow read, write: if signedIn();
+    function isChatParticipant(chatId) {
+      return signedInByPhone()
+        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantUids;
+    }
+
+    match /users/{phoneDigits} {
+      allow read: if signedInByPhone();
+      allow create, update: if signedInByPhone()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /chats/{chatId} {
+      allow read: if signedInByPhone()
+        && request.auth.uid in resource.data.participantUids;
+      allow create: if signedInByPhone()
+        && request.auth.uid in request.resource.data.participantUids
+        && request.resource.data.participantUids.size() == 2;
+      allow update: if signedInByPhone()
+        && request.auth.uid in resource.data.participantUids
+        && request.resource.data.participantUids == resource.data.participantUids;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isChatParticipant(chatId);
+        allow create: if isChatParticipant(chatId)
+          && request.resource.data.senderUid == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
   }
 }
