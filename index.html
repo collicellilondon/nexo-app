@@ -10,8 +10,9 @@
   <meta name="apple-mobile-web-app-title" content="Nexo" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Nexo — suas conversas, mais perto</title>
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" type="image/jpeg" sizes="512x512" href="nexo-logo.jpeg" />
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials" />
+  <link rel="icon" type="image/png" sizes="192x192" href="nexo-icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="nexo-icon-512.png" />
   <link rel="apple-touch-icon" href="nexo-icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,6 +20,14 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="dark">
+  <div class="install-banner" id="installBanner" hidden>
+    <div>
+      <strong>Instalar Nexo</strong>
+      <span>Abra como app no Android, sem barra do navegador.</span>
+    </div>
+    <button class="secondary-action" id="installAppButton" type="button">Instalar app</button>
+    <button class="icon-button" id="dismissInstallBanner" type="button" aria-label="Fechar aviso">×</button>
+  </div>
   <section class="auth-screen" id="authScreen" hidden>
     <div class="auth-card">
       <div class="auth-glow auth-glow-one"></div>
