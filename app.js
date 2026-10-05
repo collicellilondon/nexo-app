@@ -16,6 +16,8 @@ let userProfile = loadState('nexo-profile', {
 removeSeededDemoData();
 let activeId = conversations[0]?.id || null, filter = 'all', recordingSeconds = 0, recordInterval, mediaRecorder, audioChunks = [], activeStream;
 let callStream, callInterval, callSeconds = 0, currentCallType = 'audio';
+let db = null, realtimeReady = false, firestorePersistenceTried = false, activeMessagesUnsubscribe = null;
+let currentPhone = localStorage.getItem('nexo-phone') || '';
 const list = document.querySelector('#conversationList');
 const messages = document.querySelector('#messages');
 const input = document.querySelector('#messageInput');
@@ -125,7 +127,7 @@ function renderConversations() {
 function renderMessages() {
   if(!activeId) {
     messages.innerHTML = `<div class="conversation-empty-panel">
-      <img src="nexo-icon-192.png" alt="Nexo">
+      <img src="nexo-logo.jpeg" alt="Nexo">
       <h2>Comece uma conversa real</h2>
       <p>Use a agenda do celular no Android ou digite o número para iniciar. O Nexo não vem mais com dados fictícios.</p>
       <button id="startRealChat" class="primary-action small">Nova conversa</button>
@@ -153,19 +155,198 @@ function selectChat(id) {
   chatAvatar.style.background = c.color;
   updateDetailsPanel();
   renderConversations(); renderMessages(); document.querySelector('.app-shell').classList.add('chat-open');
+  listenActiveConversation();
 }
 
-function sendText() {
+async function sendText() {
   if(!activeId) { openContactDiscovery(); return; }
   const text=input.value.trim(); if(!text) return;
-  histories[activeId].push({mine:true,text,time:now()}); input.value=''; resizeInput(); updateSendState(); renderMessages();
-  const c=conversations.find(x=>x.id===activeId); c.preview=text; c.time=now(); saveAppState(); renderConversations();
+  const c=conversations.find(x=>x.id===activeId);
+  const message = {mine:true,text,time:now(),localCreatedAt:new Date().toISOString(),syncing:false};
+  histories[activeId].push(message); input.value=''; resizeInput(); updateSendState(); renderMessages();
+  c.preview=text; c.time=now(); saveAppState(); renderConversations();
+  sendRemoteText(c, message);
 }
 function updateSendState(){const has=input.value.trim();document.querySelector('#composerActionSlot').classList.toggle('typing',!!has)}
 function resizeInput(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,110)+'px'}
 function now(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function escapeHtml(s){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function toast(text){const t=document.querySelector('#toast');t.textContent=text;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1900)}
+
+function phoneDigits(phone) {
+  return String(phone || '').replace(/\D/g,'');
+}
+
+function phoneDocId(phone) {
+  return phoneDigits(phone);
+}
+
+function remoteChatIdForPhones(a,b) {
+  const ids = [phoneDigits(a), phoneDigits(b)].filter(Boolean).sort();
+  return ids.length === 2 ? `chat_${ids.join('_')}` : '';
+}
+
+function remoteChatIdForConversation(c) {
+  if(!c?.phone || !currentPhone) return '';
+  return c.remoteChatId || remoteChatIdForPhones(currentPhone, c.phone);
+}
+
+function remoteTimestampToTime(createdAt, fallbackIso) {
+  try {
+    const date = createdAt?.toDate ? createdAt.toDate() : (fallbackIso ? new Date(fallbackIso) : new Date());
+    return date.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  } catch {
+    return now();
+  }
+}
+
+function initFirestore() {
+  if(!initFirebaseAuth() || !window.firebase?.firestore) return false;
+  db = firebase.firestore();
+  if(!firestorePersistenceTried) {
+    firestorePersistenceTried = true;
+    db.enablePersistence?.({ synchronizeTabs: true }).catch(()=>{});
+  }
+  return true;
+}
+
+function initRealtimeSync() {
+  if(!initFirestore()) return false;
+  currentPhone = firebase.auth().currentUser?.phoneNumber || localStorage.getItem('nexo-phone') || currentPhone;
+  if(!currentPhone) return false;
+  realtimeReady = true;
+  syncMyProfile();
+  listenActiveConversation();
+  return true;
+}
+
+function syncMyProfile() {
+  if(!db || !currentPhone) return;
+  const docId = phoneDocId(currentPhone);
+  if(!docId) return;
+  db.collection('users').doc(docId).set({
+    phone: currentPhone,
+    phoneDigits: docId,
+    name: userProfile.name || 'Nexo',
+    about: userProfile.about || 'Disponível',
+    username: userProfile.username || '',
+    avatar: userProfile.avatar || initials(userProfile.name),
+    avatarColor: userProfile.avatarColor || '#075e54',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(()=>{});
+}
+
+async function lookupNexoContactsInFirestore(phones) {
+  if(!initRealtimeSync()) return new Set();
+  const hits = await Promise.all([...new Set(phones)].map(async phone => {
+    const docId = phoneDocId(phone);
+    if(!docId) return null;
+    try {
+      const snap = await db.collection('users').doc(docId).get();
+      return snap.exists ? phone : null;
+    } catch {
+      return null;
+    }
+  }));
+  return new Set(hits.filter(Boolean));
+}
+
+async function sendRemoteText(c, message) {
+  if(!c?.phone) return;
+  if(!initRealtimeSync()) {
+    message.syncFailed = true;
+    saveAppState();
+    renderMessages();
+    toast('Mensagem salva neste aparelho. Sincronização ainda não conectada.');
+    return;
+  }
+  const chatId = remoteChatIdForConversation(c);
+  if(!chatId) return;
+  try {
+    const ref = db.collection('chats').doc(chatId).collection('messages').doc();
+    message.remoteId = ref.id;
+    message.syncing = true;
+    c.remoteChatId = chatId;
+    saveAppState();
+    await db.collection('chats').doc(chatId).set({
+      id: chatId,
+      participants: [phoneDigits(currentPhone), phoneDigits(c.phone)].sort(),
+      phones: [currentPhone, c.phone].sort(),
+      lastMessage: message.text,
+      lastSenderPhone: currentPhone,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    await ref.set({
+      id: ref.id,
+      type: 'text',
+      text: message.text,
+      senderPhone: currentPhone,
+      recipientPhone: c.phone,
+      senderName: userProfile.name || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      clientCreatedAt: message.localCreatedAt || new Date().toISOString()
+    });
+    message.syncing = false;
+    message.synced = true;
+    saveAppState();
+    renderMessages();
+  } catch {
+    message.syncing = false;
+    message.syncFailed = true;
+    saveAppState();
+    renderMessages();
+    toast('Mensagem salva localmente. Ative o Firestore para entregar no outro celular.');
+  }
+}
+
+function listenActiveConversation() {
+  if(activeMessagesUnsubscribe) {
+    activeMessagesUnsubscribe();
+    activeMessagesUnsubscribe = null;
+  }
+  const c = conversations.find(x=>x.id===activeId);
+  const chatId = remoteChatIdForConversation(c);
+  if(!db || !currentPhone || !c || !chatId) return;
+  c.remoteChatId = chatId;
+  activeMessagesUnsubscribe = db.collection('chats').doc(chatId).collection('messages')
+    .orderBy('createdAt','asc')
+    .limit(200)
+    .onSnapshot(snapshot => {
+      const local = histories[activeId] || [];
+      let changed = false;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data() || {};
+        if(data.type !== 'text' || !data.text) return;
+        const existing = local.find(m => m.remoteId === doc.id);
+        if(existing) {
+          existing.synced = true;
+          existing.syncing = false;
+          return;
+        }
+        local.push({
+          mine: data.senderPhone === currentPhone,
+          text: data.text,
+          time: remoteTimestampToTime(data.createdAt, data.clientCreatedAt),
+          remoteId: doc.id,
+          synced: true
+        });
+        changed = true;
+      });
+      if(changed) {
+        histories[activeId] = local;
+        const latest = local[local.length - 1];
+        if(latest?.text) {
+          c.preview = latest.text;
+          c.time = latest.time || now();
+        }
+        saveAppState();
+        renderConversations();
+        renderMessages();
+      }
+    }, () => {
+      toast('Sincronização de mensagens indisponível. Confira Firestore/Regras.');
+    });
+}
 
 document.querySelector('#searchInput').addEventListener('input',renderConversations);
 document.querySelectorAll('.filter').forEach(btn=>btn.onclick=()=>{document.querySelector('.filter.active').classList.remove('active');btn.classList.add('active');filter=btn.dataset.filter;renderConversations()});
@@ -360,13 +541,16 @@ function normalizeContactPhone(rawValue, fallbackCountry = '+44') {
 
 async function lookupNexoContacts(phones) {
   const uniquePhones = [...new Set(phones.filter(Boolean))].slice(0,50);
-  if(!uniquePhones.length || brandedOtpApiBase() === null) return new Set();
+  if(!uniquePhones.length) return new Set();
   try {
-    const result = await apiPost('/api/contacts-lookup', { phones: uniquePhones });
-    return new Set(result.registeredPhones || []);
+    if(brandedOtpApiBase() !== null) {
+      const result = await apiPost('/api/contacts-lookup', { phones: uniquePhones });
+      return new Set(result.registeredPhones || []);
+    }
   } catch {
-    return new Set();
+    // Se o backend OTP ainda não estiver ativo, tenta a lista autenticada do Firestore.
   }
+  return lookupNexoContactsInFirestore(uniquePhones);
 }
 
 function nextConversationId() {
@@ -660,6 +844,7 @@ function showSetting(type) {
     userProfile.avatar = initials(userProfile.name);
     saveAppState();
     applyUserProfile();
+    syncMyProfile();
     toast('Perfil atualizado');
   });
   body.querySelector('#removeProfilePhoto')?.addEventListener('click',()=>{
@@ -908,6 +1093,26 @@ async function verifyPhoneCode(code) {
 document.querySelector('#requestCode').onclick=async()=>{const phoneResult=normalizePhoneNumber(countryCodeSelect.value,phoneInput.value);document.querySelector('#phoneError').textContent='';if(!phoneResult.ok){document.querySelector('#phoneError').textContent=phoneResult.error;return}pendingPhone=phoneResult.phone;document.querySelector('#requestCode').disabled=true;document.querySelector('#requestCode').textContent='Enviando...';const ok=await sendPhoneCode(pendingPhone);document.querySelector('#requestCode').disabled=false;document.querySelector('#requestCode').textContent='Continuar';if(!ok)return;document.querySelector('#phonePreview').textContent=pendingPhone;phoneStep.hidden=true;codeStep.hidden=false;document.querySelector('#otpFields input').focus()};
 const otpInputs=[...document.querySelectorAll('#otpFields input')];otpInputs.forEach((el,i)=>{el.oninput=()=>{el.value=el.value.replace(/\D/g,'').slice(-1);if(el.value&&otpInputs[i+1])otpInputs[i+1].focus()};el.onkeydown=e=>{if(e.key==='Backspace'&&!el.value&&otpInputs[i-1])otpInputs[i-1].focus()};el.onpaste=e=>{e.preventDefault();const code=e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);code.split('').forEach((v,j)=>{if(otpInputs[j])otpInputs[j].value=v});otpInputs[Math.min(code.length,5)].focus()}});
 document.querySelector('#editPhone').onclick=()=>{codeStep.hidden=true;phoneStep.hidden=false};
-document.querySelector('#verifyCode').onclick=async()=>{const code=otpInputs.map(i=>i.value).join('');document.querySelector('#codeError').textContent='';document.querySelector('#verifyCode').disabled=true;document.querySelector('#verifyCode').textContent='Verificando...';try{const ok=await verifyPhoneCode(code);if(!ok){document.querySelector('#codeError').textContent=authMode==='demo'?'Código incorreto. No teste, use 123456.':'Código incorreto ou expirado.';return}localStorage.setItem('nexo-phone',pendingPhone);localStorage.setItem('nexo-auth-mode',authMode);saveAppState();authScreen.hidden=true;toast('Número confirmado. Bem-vindo ao Nexo!')}catch{document.querySelector('#codeError').textContent='Não consegui confirmar o código. Tente novamente.'}finally{document.querySelector('#verifyCode').disabled=false;document.querySelector('#verifyCode').textContent='Verificar e entrar'}};
+document.querySelector('#verifyCode').onclick=async()=>{const code=otpInputs.map(i=>i.value).join('');document.querySelector('#codeError').textContent='';document.querySelector('#verifyCode').disabled=true;document.querySelector('#verifyCode').textContent='Verificando...';try{const ok=await verifyPhoneCode(code);if(!ok){document.querySelector('#codeError').textContent=authMode==='demo'?'Código incorreto. No teste, use 123456.':'Código incorreto ou expirado.';return}localStorage.setItem('nexo-phone',pendingPhone);localStorage.setItem('nexo-auth-mode',authMode);currentPhone=pendingPhone;saveAppState();initRealtimeSync();authScreen.hidden=true;toast('Número confirmado. Bem-vindo ao Nexo!')}catch{document.querySelector('#codeError').textContent='Não consegui confirmar o código. Tente novamente.'}finally{document.querySelector('#verifyCode').disabled=false;document.querySelector('#verifyCode').textContent='Verificar e entrar'}};
 
+function bootFirebaseSession() {
+  if(!firebaseConfigReady()) return;
+  try {
+    initFirebaseAuth();
+    firebase.auth().onAuthStateChanged(user => {
+      if(user?.phoneNumber) {
+        currentPhone = user.phoneNumber;
+        localStorage.setItem('nexo-phone', currentPhone);
+        authScreen.hidden = true;
+      } else {
+        currentPhone = localStorage.getItem('nexo-phone') || currentPhone;
+      }
+      initRealtimeSync();
+    });
+  } catch {
+    // O app continua local se Firebase ou Firestore não estiverem disponíveis.
+  }
+}
+
+bootFirebaseSession();
 if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
