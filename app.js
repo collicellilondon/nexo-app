@@ -1174,7 +1174,26 @@ document.querySelector('#detailBack').onclick=()=>settingDetail.hidden=true;
 document.querySelector('#featureBack').onclick=()=>{document.querySelector('#featureView').hidden=true;backdrop.hidden=true};
 backdrop.onclick=closePanels;
 document.querySelectorAll('[data-setting]').forEach(b=>b.onclick=()=>showSetting(b.dataset.setting));
-document.querySelectorAll('.bottom-nav [data-section]').forEach(b=>{if(['updates','calls'].includes(b.dataset.section))b.onclick=()=>openFeature(b.dataset.section)});
+document.querySelectorAll('.bottom-nav [data-section]').forEach(b=>b.onclick=()=>{
+  const section = b.dataset.section;
+  document.querySelectorAll('.bottom-nav button').forEach(btn=>btn.classList.toggle('active', btn === b));
+  document.querySelector('.app-shell').classList.remove('chat-open');
+  if(section === 'chats') {
+    closePanels();
+    document.querySelector('#featureView').hidden = true;
+    return;
+  }
+  if(section === 'settings') {
+    document.querySelector('#featureView').hidden = true;
+    openSettings();
+    return;
+  }
+  if(['updates','calls'].includes(section)) {
+    settingsPanel.hidden = true;
+    settingDetail.hidden = true;
+    openFeature(section);
+  }
+});
 document.querySelector('#profilePhotoInput').onchange=async e=>{
   const file = e.target.files[0];
   if(!file) return;
