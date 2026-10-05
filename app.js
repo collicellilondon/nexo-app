@@ -414,6 +414,8 @@ function createConversationFromContact(contact) {
   saveAppState();
   selectChat(c.id);
   document.querySelector('#featureView').hidden = true;
+  document.querySelector('#settingsPanel').hidden = true;
+  document.querySelector('#settingDetail').hidden = true;
   document.querySelector('#panelBackdrop').hidden = true;
   toast(registered ? 'Contato Nexo encontrado' : 'Contato salvo localmente');
 }
@@ -488,6 +490,11 @@ document.querySelector('.chat-person').onclick=openProfilePanel;
 document.querySelector('#closeDetails').onclick=closeProfilePanel;
 document.querySelector('.profile-row').onclick=()=>{openSettings();showSetting('profile')};
 document.querySelector('#newChatButton').onclick=openContactDiscovery;
+document.querySelector('#addContactButton').onclick=openContactDiscovery;
+document.querySelectorAll('[data-quick-theme]').forEach(btn=>btn.addEventListener('click',()=>{
+  applyTheme(btn.dataset.quickTheme);
+  toast(`Tema ${btn.textContent.trim()} aplicado`);
+}));
 document.querySelectorAll('.quick-actions button').forEach((btn,i)=>btn.onclick=()=>{if(i===0)startCall('audio');else if(i===1)startCall('video');else if(activeId) toast('Busca no perfil ativada'); else openContactDiscovery()});
 document.querySelectorAll('.detail-card button').forEach(btn=>btn.onclick=()=>toast(btn.textContent.trim() || 'Opção aberta'));
 document.querySelector('.danger-action').onclick=()=>toast('Bloqueio ficará disponível com contatos reais');
@@ -518,6 +525,10 @@ function closePanels() {
 function applyTheme(theme) {
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.body.classList.toggle('dark',dark); localStorage.setItem('nexo-theme',theme);
+  document.querySelectorAll('[data-quick-theme]').forEach(btn=>{
+    const quickTheme = dark ? 'dark' : 'light';
+    btn.classList.toggle('active', btn.dataset.quickTheme === quickTheme);
+  });
 }
 function applyWallpaper(wall) {
   document.body.classList.remove('wall-blue','wall-mint','wall-plain');
@@ -608,14 +619,15 @@ async function restoreLocalBackup(file) {
   }
 }
 function showSetting(type) {
-  const titles={profile:'Perfil',account:'Conta',privacy:'Privacidade',avatar:'Avatar',favorites:'Favoritos',chats:'Conversas',notifications:'Notificações',storage:'Armazenamento e dados',accessibility:'Acessibilidade',help:'Ajuda'};
+  const titles={profile:'Perfil',contacts:'Contatos',account:'Conta',privacy:'Privacidade',avatar:'Avatar',favorites:'Favoritos',chats:'Conversas',notifications:'Notificações',storage:'Armazenamento e dados',accessibility:'Acessibilidade',help:'Ajuda'};
   document.querySelector('#detailTitle').textContent=titles[type]||'Configurações';
   const body=document.querySelector('#settingDetailBody');
-  if(type==='chats') body.innerHTML=`<div class="setting-group"><h3>Tema</h3><div class="theme-cards"><button class="theme-card" data-theme="light"><div class="theme-preview"></div><span>Claro</span></button><button class="theme-card" data-theme="dark"><div class="theme-preview"></div><span>Escuro</span></button><button class="theme-card" data-theme="system"><div class="theme-preview"></div><span>Sistema</span></button></div><h3>Papel de parede</h3><div class="wallpapers"><button class="wallpaper" data-wall="dots" aria-label="Padrão"></button><button class="wallpaper" data-wall="blue" aria-label="Azul"></button><button class="wallpaper" data-wall="mint" aria-label="Verde"></button><button class="wallpaper" data-wall="plain" aria-label="Liso"></button></div></div><div class="setting-group"><h3>Conversas</h3>${row('↵','Enter para enviar','A tecla Enter envia sua mensagem',true,false)}${row('▤','Manter conversas arquivadas','Conversas permanecem arquivadas',true,true)}${row('♲','Histórico local','Mensagens e mídias ficam salvas neste aparelho')}</div>${localBackupMarkup()}`;
-  else if(type==='privacy') body.innerHTML=`<div class="setting-group"><h3>Quem pode ver meus dados</h3>${row('◉','Visto por último e online','Meus contatos')}${row('▣','Foto do perfil','Todos')}${row('ⓘ','Recado','Meus contatos')}${row('◌','Status','Meus contatos, exceto 2')}${row('✓','Confirmações de leitura','Ativadas',true,true)}</div><div class="setting-group"><h3>Mensagens</h3>${row('⌛','Duração padrão','Desativada')}${row('⊘','Contatos bloqueados','2 contatos')}${row('♢','Proteção avançada','Desativada')}</div>`;
+  if(type==='contacts') body.innerHTML=contactDiscoveryMarkup();
+  else if(type==='chats') body.innerHTML=`<div class="setting-group"><h3>Tema</h3><div class="theme-cards"><button class="theme-card" data-theme="light"><div class="theme-preview"></div><span>Claro</span></button><button class="theme-card" data-theme="dark"><div class="theme-preview"></div><span>Escuro</span></button><button class="theme-card" data-theme="system"><div class="theme-preview"></div><span>Sistema</span></button></div><h3>Papel de parede</h3><div class="wallpapers"><button class="wallpaper" data-wall="dots" aria-label="Padrão"></button><button class="wallpaper" data-wall="blue" aria-label="Azul"></button><button class="wallpaper" data-wall="mint" aria-label="Verde"></button><button class="wallpaper" data-wall="plain" aria-label="Liso"></button></div></div><div class="setting-group"><h3>Conversas</h3>${row('↵','Enter para enviar','A tecla Enter envia sua mensagem',true,false)}${row('▤','Manter conversas arquivadas','Conversas permanecem arquivadas',true,true)}${row('♲','Histórico local','Mensagens e mídias ficam salvas neste aparelho')}</div>${localBackupMarkup()}`;
+  else if(type==='privacy') body.innerHTML=`<div class="setting-group"><h3>Quem pode ver meus dados</h3>${row('◉','Visto por último e online','Meus contatos')}${row('▣','Foto do perfil','Meus contatos')}${row('ⓘ','Recado','Meus contatos')}${row('◌','Status','Meus contatos')}${row('✓','Confirmações de leitura','Ativadas',true,true)}</div><div class="setting-group"><h3>Mensagens</h3>${row('⌛','Duração padrão','Desativada')}${row('⊘','Contatos bloqueados','Nenhum contato')}${row('♢','Proteção avançada','Desativada')}</div>`;
   else if(type==='notifications') body.innerHTML=`<div class="setting-group"><h3>Mensagens</h3>${row('♧','Sons de conversa','Reproduzir sons recebidos e enviados',true,true)}${row('▣','Notificações na área de trabalho','Mostrar prévias de mensagens',true,true)}${row('◌','Reações','Avisar sobre reações',true,true)}</div><div class="setting-group"><h3>Chamadas</h3>${row('♧','Toque','Nexo')}${row('◔','Silenciar desconhecidos','Chamadas ficam na lista',true,false)}</div>`;
-  else if(type==='storage') body.innerHTML=`<div class="setting-group"><h3>Uso</h3>${row('▤','Gerenciar armazenamento','1,2 GB de 128 GB usados')}${row('⇅','Uso de rede','Enviados: 184 MB · Recebidos: 510 MB')}</div><div class="setting-group"><h3>Download automático</h3>${row('▧','Fotos','Wi-Fi e dados móveis')}${row('▶','Vídeos','Apenas Wi-Fi')}${row('▤','Documentos','Apenas Wi-Fi')}${row('♧','Áudios','Wi-Fi e dados móveis')}</div>`;
-  else if(type==='favorites') body.innerHTML=`<div class="feature-item"><div class="avatar avatar-lia">L</div><div><strong>Lia Martins</strong><small>Vamos naquele café novo?</small></div><time>14:28</time></div><div class="feature-item"><div class="avatar" style="background:#6c5ce7">N</div><div><strong>Equipe Nexo</strong><small>O protótipo ficou incrível!</small></div><time>Ontem</time></div>`;
+  else if(type==='storage') body.innerHTML=`<div class="setting-group"><h3>Uso</h3>${row('▤','Gerenciar armazenamento','Dados salvos somente neste aparelho')}${row('⇅','Uso de rede','Disponível quando a sincronização estiver ativa')}</div><div class="setting-group"><h3>Download automático</h3>${row('▧','Fotos','Perguntar antes de salvar')}${row('▶','Vídeos','Perguntar antes de salvar')}${row('▤','Documentos','Perguntar antes de salvar')}${row('♧','Áudios','Salvar quando enviado ou recebido')}</div>`;
+  else if(type==='favorites') body.innerHTML=`<div class="feature-empty"><div class="big-icon">☆</div><strong>Nenhum favorito ainda</strong><p>Mensagens e contatos marcados como favoritos aparecerão aqui.</p></div>`;
   else if(type==='avatar') body.innerHTML=avatarEditorMarkup();
   else if(type==='profile') body.innerHTML=profileEditorMarkup();
   else body.innerHTML=`<div class="setting-group"><h3>${titles[type]}</h3>${row('♢','Segurança e controle','Ajuste suas preferências')}${row('◉','Informações pessoais','Gerencie seus dados')}${row('▤','Opções adicionais','Mais recursos do Nexo')}</div>`;
@@ -625,6 +637,18 @@ function showSetting(type) {
   body.querySelectorAll('.wallpaper').forEach(c=>{c.classList.toggle('active',c.dataset.wall===localStorage.getItem('nexo-wall'));c.onclick=()=>{applyWallpaper(c.dataset.wall);body.querySelectorAll('.wallpaper').forEach(x=>x.classList.toggle('active',x===c));toast('Papel de parede atualizado')}});
   body.querySelector('#exportBackup')?.addEventListener('click',exportLocalBackup);
   body.querySelector('#restoreBackup')?.addEventListener('click',()=>document.querySelector('#restoreBackupInput').click());
+  body.querySelector('#pickDeviceContact')?.addEventListener('click', pickDeviceContacts);
+  body.querySelector('#addManualContact')?.addEventListener('click', async()=>{
+    const name = body.querySelector('#manualContactName').value.trim();
+    const phone = normalizeContactPhone(body.querySelector('#manualContactPhone').value);
+    if(!phone) { toast('Digite um telefone válido com DDI'); return; }
+    const registeredPhones = await lookupNexoContacts([phone]);
+    createConversationFromContact({ name: name || phone, phone, registeredNexo: registeredPhones.has(phone) });
+  });
+  body.querySelectorAll('.contact-result').forEach(btn=>btn.addEventListener('click',()=>{
+    const contact = deviceContacts.find(c=>c.phone === btn.dataset.phone);
+    if(contact) createConversationFromContact(contact);
+  }));
   body.querySelector('#changeProfilePhoto')?.addEventListener('click',()=>document.querySelector('#profilePhotoInput').click());
   body.querySelector('#changePhotoAction')?.addEventListener('click',()=>document.querySelector('#profilePhotoInput').click());
   body.querySelector('#useAvatarAction')?.addEventListener('click',()=>showSetting('avatar'));
