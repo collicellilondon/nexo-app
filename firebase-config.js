@@ -16,7 +16,7 @@ window.NEXO_FIREBASE_CONFIG = {
 // Web Push / Firebase Cloud Messaging.
 // Preencha com a "Web Push certificate key pair" do Firebase Console > Cloud Messaging.
 // Sem esta chave, o app mostra o botão de ativar notificações, mas o token FCM não é gerado.
-window.NEXO_FIREBASE_VAPID_KEY = "";
+window.NEXO_FIREBASE_VAPID_KEY = "BMv6QT_VdL3oyr3uWkbxOTyqQKiQtkqUEo5XWvLf9JbC_DBSFA2k6_qf-brJgCqR1m2Pu7ylsWR4bhbbHHUtKtI";
 
 // Opcional: URL do backend Nexo OTP quando ele estiver publicado.
 // Em Vercel, deixe vazio para usar o mesmo domínio: /api/request-code e /api/verify-code.
