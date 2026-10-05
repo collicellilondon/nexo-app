@@ -1,0 +1,13 @@
+{
+  "name": "nexo-app",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Nexo web messenger with Firebase auth and branded OTP backend.",
+  "scripts": {
+    "check": "node --check app.js && node --check api/request-code.js && node --check api/verify-code.js && node --check api/_shared.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "twilio": "^5.8.0"
+  }
+}
