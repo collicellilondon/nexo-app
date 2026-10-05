@@ -62,6 +62,23 @@ O Nexo não inclui mais conversas ou mensagens fictícias no estado inicial. A l
 
 Por privacidade, a versão web/PWA não varre a agenda inteira automaticamente. O sistema abre o seletor nativo e o usuário escolhe quais contatos compartilhar com o Nexo.
 
+## Sincronização entre celulares
+
+O app agora prepara sincronização por Firebase Firestore:
+
+- ao confirmar o telefone, o perfil é salvo em `users/{telefone}`;
+- conversas diretas usam `chats/{telefoneA_telefoneB}/messages`;
+- mensagens de texto são salvas localmente e também enviadas para o Firestore quando disponível;
+- outro celular autenticado com Nexo recebe as mensagens em tempo real ao abrir a conversa com o mesmo número.
+
+Para ativar em produção/teste real:
+
+1. No Firebase Console, crie/ative o Firestore Database em modo Native.
+2. Publique as regras de teste do arquivo `firestore.rules`.
+3. Depois de validar, troque por regras mais restritas aos participantes da conversa.
+
+Fotos, vídeos e áudios continuam preservados no aparelho neste estágio. Para sincronizar mídia entre celulares será necessário ativar Firebase Storage e mover os anexos para arquivos remotos seguros.
+
 ## Banco local
 
 Neste início, o Nexo é local-first:
