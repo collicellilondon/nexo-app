@@ -2,17 +2,20 @@
   "name": "Nexo Mensagens",
   "short_name": "Nexo",
   "description": "Conecta. Comunica. Transforma.",
-  "id": "/nexo-app/",
-  "start_url": "/nexo-app/",
-  "scope": "/nexo-app/",
+  "id": "https://collicellilondon.github.io/nexo-app/",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
   "background_color": "#020411",
-  "theme_color": "#087aff",
+  "theme_color": "#0e1118",
+  "categories": ["social", "communication"],
+  "lang": "pt-BR",
   "icons": [
-    {"src":"nexo-logo.jpeg","sizes":"512x512","type":"image/jpeg","purpose":"any"},
-    {"src":"nexo-logo.jpeg","sizes":"512x512","type":"image/jpeg","purpose":"maskable"},
+    {"src":"nexo-icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"nexo-icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"nexo-icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"},
     {"src":"nexo-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
   ]
 }
