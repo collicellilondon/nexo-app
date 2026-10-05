@@ -4,7 +4,7 @@
   "private": true,
   "description": "Nexo web messenger with Firebase auth and branded OTP backend.",
   "scripts": {
-    "check": "node --check app.js && node --check api/request-code.js && node --check api/verify-code.js && node --check api/_shared.js"
+    "check": "node --check app.js && node --check service-worker.js && node --check api/request-code.js && node --check api/verify-code.js && node --check api/contacts-lookup.js && node --check api/send-push.js && node --check api/_shared.js"
   },
   "dependencies": {
     "firebase-admin": "^13.5.0",
