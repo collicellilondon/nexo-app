@@ -5,12 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#087aff" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="Nexo" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Nexo" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Nexo — suas conversas, mais perto</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="nexo-logo.jpeg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="nexo-icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="nexo-icon-512.png" />
+  <link rel="apple-touch-icon" href="nexo-icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
@@ -51,7 +54,7 @@
     <aside class="sidebar" id="sidebar">
       <header class="sidebar-header">
         <div class="brand"><img class="brand-logo" src="nexo-logo.jpeg" alt="Logo Nexo"><span>Nexo</span></div>
-        <button class="icon-button" aria-label="Nova conversa" title="Nova conversa">✎</button>
+        <button class="icon-button" id="newChatButton" aria-label="Nova conversa" title="Nova conversa">✎</button>
       </header>
 
       <div class="profile-row">
@@ -67,8 +70,8 @@
       </label>
 
       <nav class="filter-tabs" aria-label="Filtros de conversas">
-        <button class="filter active" data-filter="all">Todas <span>4</span></button>
-        <button class="filter" data-filter="unread">Não lidas <span>2</span></button>
+        <button class="filter active" data-filter="all">Todas</button>
+        <button class="filter" data-filter="unread">Não lidas</button>
         <button class="filter" data-filter="groups">Grupos</button>
       </nav>
 
